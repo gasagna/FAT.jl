@@ -27,11 +27,13 @@ get_snapshots_times(casedir::AbstractString) =
 				 of the simulation. If 3, all three velocity components
 				 are read and saved. If 2 only the first two, i.e. those 
 				 along the x and y directions. Defaults to 2.
+	   verbose : if true, print current time being read
 """
 function OpenFoamToHDF5(casedir::AbstractString; 
 					    fielddtype::Type=Float64, 
 					    overwrite::Bool=false, 
-					    dimensions::Integer=2)
+					    dimensions::Integer=2, 
+					    verbose=true)
 	# FIXME: check if it is better to have multiple hdf files
 	# check dimensions
 	dimensions in [2, 3] || error("Number of spatial dimensions must be either 2 or 3")
@@ -51,6 +53,9 @@ function OpenFoamToHDF5(casedir::AbstractString;
 	for time in get_snapshots_times(casedir)[2:end]
 		# use six decimal digits for the groups names
 		ts = @sprintf "%.6f" parse(Float64, time)
+
+		# debug output
+		verbose && print("\r Reading t=$(ts)")
 		
 		# create groups for each time
 		time_group = g_create(fh, ts)
@@ -71,7 +76,6 @@ function OpenFoamToHDF5(casedir::AbstractString;
 		U_group["internalField"] = dimensions == 2 ? a[:, end] : a
 		b = read_boundary_vector_field(casedir, open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
 		U_group["boundaryField"] = dimensions == 2 ? b[:, end] : b
-		
 	end
 	close(fh)
 	nothing
