@@ -4,7 +4,7 @@ export GalerkinModel
 
 import Base: call
 import FAT.Fields: zeroScalarField, zeroVectorField, zeroTensorField, inner, grad!, curl!
-import FAT.Fields: VectorField, curl, grad, dotgrad!
+import FAT.Fields: VectorField, curl, grad, dotgrad!, AbstractField
 
 type GalerkinModel
 	c::Array{Float64, 1}
@@ -96,6 +96,18 @@ function call(sys::GalerkinModel, xdot::AbstractVector, x::AbstractVector)
 		end
 	end
 	xdot
+end
+
+""" Time derivative of mode `ui`, with vorticity `ωi` 
+	computed against current DNS solution given by 
+	`u∇u`, and `ω`. 
+"""
+function ∂ai∂t{D, T, M}(u∇u::AbstractField{D, T, M}, 
+			  	          ω::AbstractField{D, T, M}, 
+				         ui::AbstractField{D, T, M},
+			             ωi::AbstractField{D, T, M},
+			             Re::Real) 
+	- inner(ui, u∇u) + inner(ω, ωi)/Re
 end
 
 end
