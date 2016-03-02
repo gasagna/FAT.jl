@@ -243,7 +243,7 @@ dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, zero(u))
 
 
 """ Inner product between two vector fields """
-function inner{D, T}(u::VectorField{D, T}, v::VectorField{D, T})
+function inner{D, T, M}(u::VectorField{D, T, M}, v::VectorField{D, T, M})
     I = zero(T)
     m = mesh(u)
     c = m.cells
@@ -260,7 +260,7 @@ end
 """ Inner product between two scalar fields. This is the integral 
     of the product of the two fields. 
 """
-function inner{D, T}(u::ScalarField{D, T}, v::ScalarField{D, T})
+function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     I = zero(T)
     m = mesh(u)
     c = m.cells
