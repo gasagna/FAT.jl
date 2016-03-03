@@ -1,6 +1,6 @@
 module Galerkin
 
-export GalerkinModel
+export GalerkinModel, ∂ai∂t
 
 import Base: call
 import FAT.Fields: zeroScalarField, zeroVectorField, zeroTensorField, inner, grad!, curl!
