@@ -107,7 +107,7 @@ function ∂ai∂t{D, T, M}(u∇u::AbstractField{D, T, M},
 				         ui::AbstractField{D, T, M},
 			             ωi::AbstractField{D, T, M},
 			             Re::Real) 
-	- inner(ui, u∇u) + inner(ω, ωi)/Re
+	- inner(ui, u∇u) - inner(ω, ωi)/Re
 end
 
 end
