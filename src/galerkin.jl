@@ -3,8 +3,8 @@ module Galerkin
 export GalerkinModel, ∂ai∂t
 
 import Base: call
-import FAT.Fields: zeroScalarField, zeroVectorField, zeroTensorField, inner, grad!, curl!
-import FAT.Fields: VectorField, curl, grad, dotgrad!, AbstractField
+import FAT.Fields: inner, grad!, curl!, VectorField, curl, grad
+import FAT.Fields: dotgrad!, AbstractField
 
 type GalerkinModel
 	c::Array{Float64, 1}

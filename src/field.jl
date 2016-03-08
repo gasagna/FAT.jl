@@ -1,14 +1,26 @@
 module Fields
 
-import Base: call, *, /, +, -, norm, show, eltype, ndims, zero, mean
+import Base: call, 
+             *, 
+             /, 
+             +,
+             -,
+             norm,
+             show,
+             eltype,
+             ndims,
+             zero,
+             mean,
+             fill!,
+             similar
 
 using FAT.Meshes
-export AbstractField, ScalarField, VectorField, TensorField, inner, grad!, grad, 
-       zeroField, curl!, zeroScalarField, zeroVectorField, zeroTensorField, 
-       mesh, curl, integral, dotgrad!, dotgrad, projections
+export AbstractField, ScalarField, VectorField, TensorField, inner, grad!
+export curl!, grad, mesh, curl, integral, dotgrad!, dotgrad
+export projections
 
 
-""" Abstract type for tensor fields
+""" Abstract type for fields
 
     Type parameters
     ---------------
@@ -50,6 +62,13 @@ type ScalarField{D, T, M} <: AbstractField{D, T, M}
     # the input arguments so D must be always specified. FIXME. WONTFIX
 end
 
+function ScalarField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64)
+    D in [2, 3] || error("`D` must be either 2 or 3")
+    ScalarField{D, dtype, typeof(mesh)}(Vector{dtype}(ncells(mesh)), 
+                                        Vector{dtype}(nboundaryfaces(mesh)), 
+                                        mesh)
+end
+
 """ Type representing vector fields, e.g. velocity or vorticity.
 
     Notes
@@ -65,6 +84,9 @@ type VectorField{D, T, M} <: AbstractField{D, T, M}
     scalars::NTuple{D, ScalarField{D, T, M}}
     mesh::M
 end
+
+VectorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
+    VectorField(ntuple(i->ScalarField(mesh, D, dtype), D), mesh)
 
 """ Type representing tensor fields, e.g. the velocity gradient tensor
 
@@ -82,6 +104,10 @@ type TensorField{D, T, M} <: AbstractField{D, T, M}
     mesh::M
 end
 
+TensorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
+    TensorField(ntuple(i->VectorField(mesh, D, dtype), D), mesh)
+
+
 " Get the type of the field data "
 eltype{D, T}(u::AbstractField{D, T}) = T
 
@@ -91,25 +117,34 @@ ndims{D}(u::AbstractField{D}) = D
 " Get the mesh of a field "
 mesh(u::AbstractField) = u.mesh
 
-# replace with generated functions, to replace the ntuple
-# for scalar field the type parameters must be specified as D cannot be inferred
-# from the input arguments
-function zeroScalarField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64)
-    D in [2, 3] || error("`D` must be either 2 or 3")
-    ScalarField{D, dtype, typeof(mesh)}(zeros(dtype, ncells(mesh)), 
-                                        zeros(dtype, nboundaryfaces(mesh)), 
-                                        mesh)
+
+# similar, fill! and zero
+similar{D, T}(u::ScalarField{D, T}) = ScalarField(mesh(u), D, T)
+similar{D, T}(u::VectorField{D, T}) = VectorField(mesh(u), D, T)
+similar{D, T}(u::TensorField{D, T}) = TensorField(mesh(u), D, T)
+
+function fill!{D, T}(u::ScalarField{D, T}, val::Real) 
+    fill!(u.internalField, val); fill!(u.boundaryField, val)
+    u
 end
+zero{D, T}(u::ScalarField{D, T}) = fill!(ScalarField(mesh(u), D, T), zero(T))
 
-zeroVectorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
-    VectorField(ntuple(i->zeroScalarField(mesh, D, dtype), D), mesh)
+function fill!{D, T}(u::VectorField{D, T}, val::Real)
+    for d = 1:D
+        fill!(u.scalars[d], zero(T))
+    end
+    u
+end
+zero{D, T}(u::VectorField{D, T}) = fill!(VectorField(mesh(u), D, T), zero(T))
 
-zeroTensorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
-    TensorField(ntuple(i->zeroVectorField(mesh, D, dtype), D), mesh)
+function fill!{D, T}(u::TensorField{D, T}, val::Real)
+    for d = 1:D
+        fill!(u.vectors[d], zero(T))
+    end
+    u
+end
+zero{D, T}(u::TensorField{D, T}) = fill!(TensorField(mesh(u), D, T), zero(T))
 
-# These are also useful
-zero{D}(u::VectorField{D}) = zeroVectorField(mesh(u), D, eltype(u))
-zero{D}(u::ScalarField{D}) = zeroScalarField(mesh(u), D, eltype(u))
 
 # overload arithmetic operators on scalar and vector fields. These
 # should not be used in performance critical code, because lots of 
