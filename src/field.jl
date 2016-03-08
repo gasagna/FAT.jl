@@ -241,20 +241,32 @@ function dotgrad!{D}(u::VectorField{D}, ∇v::TensorField{D}, out::VectorField{D
 end
 dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, zero(u))
 
-
 """ Inner product between two vector fields """
-function inner{D, T, M}(u::VectorField{D, T, M}, v::VectorField{D, T, M})
-    I = zero(T)
-    m = mesh(u)
-    c = m.cells
-    for d = 1:D
-        ud = u.scalars[d].internalField
-        vd = v.scalars[d].internalField
-        @simd for i = 1:ncells(m)
-            @inbounds I += ud[i]*vd[i]*volume(c[i])
-        end
+@generated function inner{D, T, M}(u::VectorField{D, T, M}, v::VectorField{D, T, M})
+  # setup variables
+    expr = quote
+        I = zero(T)
+        m = mesh(u)
+        c = m.cells
     end
-    I
+    for d = 1:D
+        ui, vi = symbol("u$d"), symbol("v$d")
+        push!(expr.args, :($(ui) = u.scalars[$(d)].internalField))
+        push!(expr.args, :($(vi) = v.scalars[$(d)].internalField))
+    end
+    # create loop part
+    loop = :(@simd for i = 1:ncells(m) end)
+    loopbody = loop.args[2].args[2].args
+    push!(loopbody, :(@inbounds x = u1[i]*v1[i]))
+    for d = 2:D
+        ui, vi = symbol("u$d"), symbol("v$d")
+        push!(loopbody, :(@inbounds x+= $(ui)[i] * $(vi)[i]))
+    end
+    push!(loopbody, :(@inbounds I += x*volume(c[i])))
+    # now push the whole loop to expr and return 
+    push!(expr.args, loop)
+    push!(expr.args, :(return I))
+    expr
 end
 
 """ Inner product between two scalar fields. This is the integral 
