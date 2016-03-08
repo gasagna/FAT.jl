@@ -149,111 +149,59 @@ end
 zero{D, T}(u::TensorField{D, T}) = fill!(TensorField(mesh(u), D, T), zero(T))
 
 
-# overload arithmetic operators on scalar and vector fields. These
-# should not be used in performance critical code, because lots of 
-# temporaries are created. 
-*{D}(u::ScalarField{D}, a::Real) = ScalarField{D, eltype(u), typeof(mesh(u))}(scale(u.internalField, a), scale(u.boundaryField, a), mesh(u))   
-*{D}(u::VectorField{D}, a::Real) = VectorField(ntuple(i -> u.scalars[i]*a, D), mesh(u))
-*(a::Real, u::ScalarField) = u*a   
-*(a::Real, u::VectorField) = u*a
-/(u::ScalarField, a::Real) = u*inv(a)
-/{D}(u::VectorField{D}, a::Real) = VectorField(ntuple(i -> u.scalars[i]*inv(a), D), mesh(u))
-
-# operations on Fields of equal rank. We assume they have 
-# same mesh and same amount of data. It would be strange 
-# if they did not, but we would have some error here
-for op in [:-, :+]
-    @eval $op{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) = 
-        ScalarField{D, T, M}($op(u.internalField, v.internalField), $op(u.boundaryField, v.boundaryField), mesh(u))
-    @eval $(op){D}(u::VectorField{D}, v::VectorField{D}) = 
-        VectorField(ntuple(i -> $op(u.scalars[i], v.scalars[i]), D), mesh(u))
-end 
-
-# fast in-place dot product of two vector fields
-function mul!{D}(u::VectorField{D}, v::VectorField{D}, out::ScalarField{D})
-    # set out to 0 before doing anything else
-    out.internalField[:] = zero(eltype(out))
-    out.boundaryField[:] = zero(eltype(out))
-    for d = 1:D
-        # muladd!(u, v, w, out) -> out = u*v + w for ScalarFields
-        muladd!(u.scalars[d], v.scalars[d], out, out)
-    end
-    out
-end
-# memory-allocating version
-*{D}(u::VectorField{D}, v::VectorField{D}) = 
-    mul!(u, v, zeroScalarField(mesh(u), D, eltype(u)))
-
-# These are fast, in-place operations on fields, and should be used in performance critical code
-# operations with scalars
-for (op, fname) in zip([:-, :+, :*, :/], [:sub!, :add!, :mul!, :div!])
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~ Overload operators on ScalarFields ~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Note we never check if dimensions and mesh of the operand match
+for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
+    # fast in-place version
     @eval function $fname(u::ScalarField, v::ScalarField, out::ScalarField)
-             @inbounds begin
-                 a = out.internalField 
-                 b = u.internalField         
-                 c = v.internalField  
-                 @simd for i in eachindex(u.internalField)
-                           a[i] = $op(b[i], c[i])
-                       end
-                 a = out.boundaryField
-                 b = u.boundaryField
-                 c = v.boundaryField
-                 @simd for i in eachindex(u.boundaryField) 
-                           a[i] = $op(b[i], c[i])
-                       end
-             end
-             out
+              a = out.internalField; b = u.internalField; c = v.internalField  
+              @simd for i in eachindex(a)
+                        @inbounds a[i] = $op(b[i], c[i])
+                    end
+              a = out.boundaryField; b = u.boundaryField; c = v.boundaryField
+              @simd for i in eachindex(a) 
+                        @inbounds a[i] = $op(b[i], c[i])
+                    end
+              out
           end 
-    @eval function $fname(u::ScalarField, v::Real, out::ScalarField)
-             @inbounds begin 
-                 a = out.internalField 
-                 b = u.internalField         
-                 @simd for i in eachindex(u.internalField)
-                           a[i] = $op(b[i], v)
-                       end
-                 a = out.boundaryField
-                 b = u.boundaryField
-                 @simd for i in eachindex(u.boundaryField)
-                           a[i] = $op(b[i], v)
-                       end
-             end
-             out
-          end 
-    @eval $fname(v::Real, u::ScalarField, out::ScalarField) = $fname(u, v, out)
+    # memory-allocating versions
+    @eval $op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
 end   
-# memory-allocating versions
-*{D}(u::ScalarField{D}, v::ScalarField{D}) = mul!(u, v, zero(u))
 
-# compute out = u*v + w efficiently
-function muladd!(u::ScalarField, v::ScalarField, w::ScalarField, out::ScalarField)
-    @inbounds @simd for i in eachindex(u.internalField)
-        out.internalField[i] = u.internalField[i] * v.internalField[i] + w.internalField[i]
+# Compute out = u*v + w. This is used in the 
+# `dotgrad` function.
+function muladd!(u::ScalarField,   v::ScalarField, 
+                 w::ScalarField, out::ScalarField)
+    a = out.internalField; b = u.internalField
+    c = v.internalField;   d = v.internalField  
+    @simd for i in eachindex(a)
+        @inbounds a[i] = b[i]*c[i] + d[i]
     end
-    @inbounds @simd for i in eachindex(u.boundaryField)
-        out.boundaryField[i] = u.boundaryField[i] * v.boundaryField[i] + w.boundaryField[i]
+    a = out.boundaryField; b = u.boundaryField
+    c = v.boundaryField;   d = v.boundaryField  
+    @simd for i in eachindex(a)
+        @inbounds a[i] = b[i]*c[i] + d[i]
     end
     out
 end   
 
-# operations between vectors
-for fname in [:sub!, :add!]
-    @eval function $fname{D}(u::VectorField{D}, v::VectorField{D}, out::VectorField{D})
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~ Overload operators on VectorFields ~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+for (op, fname) in zip([:-, :+], [:sub!, :add!])
+    # in-place versions
+    @eval function $fname{D}(  u::VectorField{D}, 
+                               v::VectorField{D}, 
+                             out::VectorField{D})
               for d in 1:D 
                   $fname(u.scalars[d], v.scalars[d], out.scalars[d])
               end
               out
           end 
-end
-
-# operations between vector fields and a scalar
-for fname in [:sub!, :add!, :mul!, :div!]
-    @eval function $fname{D}(u::VectorField{D}, v::Real, out::VectorField{D})
-             for d in 1:D
-                 $fname(u.scalars[d], v, out.scalars[d])
-             end
-             out
-          end 
-    @eval $fname{D}(v::Real, u::VectorField{D}, out::VectorField{D}) = $fname(u, v, out)
+    # memory allocating versions
+    @eval $op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
 end
 
 """ Compute the term (u⋅∇)v and write it in `out`.
@@ -265,20 +213,29 @@ end
     out[2] = u∂v/∂x + v*∂v/∂y + w*∂v/∂z
     out[3] = u∂w/∂x + v*∂w/∂y + w*∂w/∂z
 
-    This is an in-place version. A version allocating the output also exists.
+    This is an in-place version.
 """
-function dotgrad!{D}(u::VectorField{D}, ∇v::TensorField{D}, out::VectorField{D}) 
+function dotgrad!{D, T}( u::VectorField{D, T}, 
+                        ∇v::TensorField{D, T}, 
+                       out::VectorField{D, T}) 
+    # set to zero the output
+    fill!(out, zero(T))
     for di = 1:D
-        # set to zero the output
-        out.scalars[di].internalField[:] = zero(eltype(u))
         for dj = 1:D
-            muladd!(u.scalars[dj], ∇v.vectors[di].scalars[dj], out.scalars[di], out.scalars[di])
+            muladd!(u.scalars[dj], 
+                    ∇v.vectors[di].scalars[dj], 
+                    out.scalars[di], out.scalars[di])
         end
     end
     out
 end
-dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, zero(u))
+# memory allocating version
+dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, similar(u))
 
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~ Inner products, norms, and integrals ~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
 @generated function inner{D, T, M}(u::VectorField{D, T, M}, v::VectorField{D, T, M})
   # setup variables
@@ -307,8 +264,10 @@ dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, zero(u))
     expr
 end
 
-""" Inner product between two scalar fields. This is the integral 
-    of the product of the two fields. 
+""" Inner product between two scalar fields. This is 
+    the integral of the product of the two fields. This
+    is used for computing the integral of the product
+    of two vorticity fields in 2D.
 """
 function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     I = zero(T)
@@ -322,22 +281,11 @@ function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     I
 end
 
-""" Compute integral of scalar field `u`. """
-function integral{D, T}(u::ScalarField{D, T}) 
-    I = zero(T)
-    @inbounds begin 
-        for (i, cell) in enumerate(cells(mesh(u)))
-            I += u.internalField[i]*volume(cell)
-        end
-    end
-    I
-end
-
 """ L2 norm of vector field """
 norm(u::VectorField) = sqrt(inner(u, u))
 
 """ L2 norm of scalar field """
-norm(u::ScalarField) = sqrt(integral(mul!(u, u, u)))
+norm(u::ScalarField) = sqrt(inner(u, u))
 
 """ Compute partial derivative of `u` with respect to coordinate `dir`.
     
