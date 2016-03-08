@@ -86,6 +86,19 @@ end
 	that we want to load, we define other load_snapshot methods, with different
 	Val{Symbol} arguments, so that every method has a unique return type.
 =#
+function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:W}})
+	ts = @sprintf "%.6f" t
+	internalField = convert(Matrix{fielddtype(sim)}, read(sim.fh["$ts/W/internalField"]))
+	boundaryField = convert(Matrix{fielddtype(sim)}, read(sim.fh["$ts/W/boundaryField"]))
+	# Note that we take slices to avoid copying data. We could slice the h5 datasets 
+	# directly, but there is bug #267 of HDF that make slicing by column return a 
+	# Matrix and not a Vector.
+	VectorField(ntuple(i->ScalarField{ndims(sim), fielddtype(sim), typeof(mesh(sim))}(
+									 slice(internalField, :, i), 
+									 slice(boundaryField, :, i),
+									 mesh(sim)), ndims(sim)), mesh(sim))
+end
+
 function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:U}})
 	ts = @sprintf "%.6f" t
 	internalField = convert(Matrix{fielddtype(sim)}, read(sim.fh["$ts/U/internalField"]))
@@ -98,6 +111,7 @@ function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:U}})
 									 slice(boundaryField, :, i),
 									 mesh(sim)), ndims(sim)), mesh(sim))
 end
+
 function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:U_0}})
 	ts = @sprintf "%.6f" t
 	internalField = convert(Matrix{fielddtype(sim)}, read(sim.fh["$ts/U_0/internalField"]))
@@ -173,7 +187,7 @@ size(fs::FieldsIterator) = length(fs.ts,)
 length(fs::FieldsIterator) = length(fs.ts)
 eltype{F}(fs::FieldsIterator{F}) = F
 
-for (fname, ftype) in zip([:(:U), :(:U_0)], [:VectorField, :VectorField])
+for (fname, ftype) in zip([:(:U), :(:U_0), :(:W)], [:VectorField, :VectorField, :VectorField])
 	@eval begin 
 		fields(sim::SimulationData, ::Type{Val{$fname}}) = 
 			FieldsIterator{$ftype{ndims(sim), 
