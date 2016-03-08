@@ -395,7 +395,7 @@ function projections{T<:VectorField}(us::AbstractVector{T},
             end
         end
     else 
-        for j = 1:N, i = 1:M
+        for i = 1:M, j = 1:N
             a[i, j] = inner(us[i], uis[j])
         end
     end
