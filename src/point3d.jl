@@ -1,6 +1,6 @@
-# -------------------------------------------------------------- #
-# Copyright 2015, Davide Lasagna, AFM, University of Southampton #
-# -------------------------------------------------------------- #
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 import Base: show, norm, cross, +, -, /, *, ==
 export Point3D, distance, midpoint, asarray
 
