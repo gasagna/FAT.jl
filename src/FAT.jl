@@ -1,3 +1,6 @@
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 isdefined(Base, :__precompile__) && __precompile__(true)
 
 module FAT

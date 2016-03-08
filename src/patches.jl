@@ -1,3 +1,6 @@
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 import Base: isempty
 
 # A patch is just an index of the faces that form that patch.

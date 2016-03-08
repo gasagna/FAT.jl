@@ -1,3 +1,6 @@
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 module Simulations
 
 import Base: getindex, start, next, done, length, show, ndims, eltype, size, 

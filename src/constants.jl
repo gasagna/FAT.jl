@@ -1,3 +1,6 @@
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 module Constants
 
 # Openfoam types for boundary conditions and patches
