@@ -1,7 +1,6 @@
-# -------------------------------------------------------------- #
-# Copyright 2015, Davide Lasagna, AFM, University of Southampton #
-# -------------------------------------------------------------- #
-
+# ------------------------------------------------------------------- #
+# Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
+# ------------------------------------------------------------------- #
 import Base: call
 export PolyHedralCell, volume, centre, facesIDs, HexaCell
 
