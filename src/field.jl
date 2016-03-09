@@ -154,7 +154,7 @@ zero{D, T}(u::TensorField{D, T}) = fill!(TensorField(mesh(u), D, T), zero(T))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Note we never check if dimensions and mesh of the operand match
 for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
-    # fast in-place version
+    # fast in-place version scalar-scalar
     @eval function $fname(u::ScalarField, v::ScalarField, out::ScalarField)
               a = out.internalField; b = u.internalField; c = v.internalField  
               @simd for i in eachindex(a)
@@ -169,6 +169,23 @@ for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
     # memory-allocating versions
     @eval $op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
 end   
+
+# scalar - real operations
+for (op, fname) in zip([:*, :/], [:mul!, :div!])    
+    @eval function $fname(u::ScalarField, v::Real, out::ScalarField)
+          a = out.internalField; b = u.internalField
+          @simd for i in eachindex(a)
+                    @inbounds a[i] = $op(b[i], v)
+                end
+          a = out.boundaryField; b = u.boundaryField
+          @simd for i in eachindex(a) 
+                    @inbounds a[i] = $op(b[i], v)
+                end
+          out
+      end 
+end
+mul!(v::Real, u::ScalarField, out::ScalarField) = mul!(u, v, out)
+
 
 # Compute out = u*v + w. This is used in the 
 # `dotgrad` function.
@@ -190,6 +207,7 @@ end
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~ Overload operators on VectorFields ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# operations between vectors
 for (op, fname) in zip([:-, :+], [:sub!, :add!])
     # in-place versions
     @eval function $fname{D}(  u::VectorField{D}, 
@@ -203,6 +221,17 @@ for (op, fname) in zip([:-, :+], [:sub!, :add!])
     # memory allocating versions
     @eval $op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
 end
+
+# operations between vectors and a number
+for fname in [:mul!, :div!]
+    @eval function $fname{D}(u::VectorField{D}, v::Real, out::VectorField{D})
+             for d in 1:D
+                 $fname(u.scalars[d], v, out.scalars[d])
+             end
+             out
+          end 
+end
+mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
 
 """ Compute the term (u⋅∇)v and write it in `out`.
 
