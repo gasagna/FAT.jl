@@ -152,7 +152,13 @@ zero{D, T}(u::TensorField{D, T}) = fill!(TensorField(mesh(u), D, T), zero(T))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~ Overload operators on ScalarFields ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Note we never check if dimensions and mesh of the operand match
+# Notes: 
+#  ~ we never check if dimensions and mesh of the operands match
+#  ~ only a subset of all possible operations have been overloaded
+#    i.e., only those that were found useful at some point. Others 
+#    can be added as well.
+
+# scalar - scalar operations
 for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
     # fast in-place version scalar-scalar
     @eval function $fname(u::ScalarField, v::ScalarField, out::ScalarField)
@@ -170,6 +176,23 @@ for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
     @eval $op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
 end   
 
+# Compute out = u*v + w. This is used in the 
+# `dotgrad` function.
+function muladd!(u::ScalarField,   v::ScalarField, 
+                 w::ScalarField, out::ScalarField)
+    a = out.internalField; b = u.internalField
+    c = v.internalField;   d = w.internalField  
+    @simd for i in eachindex(a)
+        @inbounds a[i] = b[i]*c[i] + d[i]
+    end
+    a = out.boundaryField; b = u.boundaryField
+    c = v.boundaryField;   d = w.boundaryField  
+    @simd for i in eachindex(a)
+        @inbounds a[i] = b[i]*c[i] + d[i]
+    end
+    out
+end   
+
 # scalar - real operations
 for (op, fname) in zip([:*, :/], [:mul!, :div!])    
     @eval function $fname(u::ScalarField, v::Real, out::ScalarField)
@@ -183,31 +206,17 @@ for (op, fname) in zip([:*, :/], [:mul!, :div!])
                 end
           out
       end 
+    # memory-allocating versions
+    @eval $op(u::ScalarField, v::Real) = $fname(u, v, similar(u))
 end
+# only multiplication is symmetric
+*(v::Real, u::ScalarField) = u*v
 mul!(v::Real, u::ScalarField, out::ScalarField) = mul!(u, v, out)
-
-
-# Compute out = u*v + w. This is used in the 
-# `dotgrad` function.
-function muladd!(u::ScalarField,   v::ScalarField, 
-                 w::ScalarField, out::ScalarField)
-    a = out.internalField; b = u.internalField
-    c = v.internalField;   d = v.internalField  
-    @simd for i in eachindex(a)
-        @inbounds a[i] = b[i]*c[i] + d[i]
-    end
-    a = out.boundaryField; b = u.boundaryField
-    c = v.boundaryField;   d = v.boundaryField  
-    @simd for i in eachindex(a)
-        @inbounds a[i] = b[i]*c[i] + d[i]
-    end
-    out
-end   
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~ Overload operators on VectorFields ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# operations between vectors
+# vector - vector
 for (op, fname) in zip([:-, :+], [:sub!, :add!])
     # in-place versions
     @eval function $fname{D}(  u::VectorField{D}, 
@@ -222,18 +231,22 @@ for (op, fname) in zip([:-, :+], [:sub!, :add!])
     @eval $op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
 end
 
-# operations between vectors and a number
-for fname in [:mul!, :div!]
+# vector - real
+for (op, fname) in zip([:*, :/], [:mul!, :div!])
     @eval function $fname{D}(u::VectorField{D}, v::Real, out::VectorField{D})
              for d in 1:D
                  $fname(u.scalars[d], v, out.scalars[d])
              end
              out
           end 
+    # memory allocating versions
+    @eval $op(u::VectorField, v::Real) = $fname(u, v, similar(u)) 
 end
+# only multiplication is symmetric
+*(v::Real, u::VectorField) = u*v
 mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
 
-""" Compute the term (u⋅∇)v and write it in `out`.
+""" Computes the quantity (u⋅∇)v - in-place.
 
     Notes
     -----
@@ -241,8 +254,6 @@ mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
     out[1] = u∂u/∂x + v*∂u/∂y + w*∂u/∂z
     out[2] = u∂v/∂x + v*∂v/∂y + w*∂v/∂z
     out[3] = u∂w/∂x + v*∂w/∂y + w*∂w/∂z
-
-    This is an in-place version.
 """
 function dotgrad!{D, T}( u::VectorField{D, T}, 
                         ∇v::TensorField{D, T}, 
@@ -259,7 +270,7 @@ function dotgrad!{D, T}( u::VectorField{D, T},
     out
 end
 # memory allocating version
-dotgrad{D}(u::VectorField{D}, ∇v::TensorField{D}) = dotgrad!(u, ∇v, similar(u))
+dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

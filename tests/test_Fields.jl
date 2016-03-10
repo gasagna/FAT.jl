@@ -88,25 +88,170 @@ for di = 1:3, dj = 1:3
 	@test sumabs2(b.vectors[dj].scalars[di].boundaryField) == 0
 end
 
-# # get one scalar field
-# p = sim[10.0, :p]
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ScalarField-ScalarField operations
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# # test arithmetic
-# @test (p*1.0).internalField == (1.0*p).internalField
-# @test (p*1.0).boundaryField == (1.0*p).boundaryField
-# @test (p/2.0).internalField == (0.5*p).internalField
-# @test (p/2.0).boundaryField == (0.5*p).boundaryField
+# subtraction
+u = sim[10.0, :U].scalars[1]
+out = u - u
+@test sumabs2(out.internalField) == 0
+@test sumabs2(out.boundaryField) == 0
 
-# # get one scalar field
-# U = sim[10.0, :U]
-# for i = 1:ndims(U)
-# 	# test arithmetic
-# 	@test (U*1.0).scalars[i].internalField == (1.0*U).scalars[i].internalField
-# 	@test (U*1.0).scalars[i].boundaryField == (1.0*U).scalars[i].boundaryField
-# 	@test (U/2.0).scalars[i].internalField == (0.5*U).scalars[i].internalField
-# 	@test (U/2.0).scalars[i].boundaryField == (0.5*U).scalars[i].boundaryField
-# end
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.sub!(u, u, similar(u))
+@test sumabs2(out.internalField) == 0
+@test sumabs2(out.boundaryField) == 0
 
+# addition
+u = sim[10.0, :U].scalars[1]
+out = u + u
+@test all(out.internalField .== 2*u.internalField)
+@test all(out.boundaryField .== 2*u.boundaryField)
+
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.add!(u, u, similar(u))
+@test all(out.internalField .== 2*u.internalField)
+@test all(out.boundaryField .== 2*u.boundaryField)
+
+# multiplication
+u = sim[10.0, :U].scalars[1]
+out = u * u
+@test all(out.internalField .== u.internalField.^2.0)
+@test all(out.boundaryField .== u.boundaryField.^2.0)
+
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.mul!(u, u, similar(u))
+@test all(out.internalField .== u.internalField.^2.0)
+@test all(out.boundaryField .== u.boundaryField.^2.0)
+
+# test muladd, i.e., out = u*v + w
+u = sim[10.0, :U].scalars[1]
+v = 2.0*u
+w = 3.0*u
+out = FAT.Fields.muladd!(u, v, w, similar(u))
+@test all(out.internalField .== 2*u.internalField.^2 + 3.0*u.internalField)
+@test all(out.boundaryField .== 2*u.boundaryField.^2 + 3.0*u.boundaryField)
+
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ScalarField-Real operations
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# multiplication
+u = sim[10.0, :U].scalars[1]
+out = u * 1.5
+@test all(out.internalField .== 1.5*u.internalField)
+@test all(out.boundaryField .== 1.5*u.boundaryField)
+
+u = sim[10.0, :U].scalars[1]
+out = 2.5*u 
+@test all(out.internalField .== 2.5*u.internalField)
+@test all(out.boundaryField .== 2.5*u.boundaryField)
+
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.mul!(u, 1.5, similar(u))
+@test all(out.internalField .== 1.5*u.internalField)
+@test all(out.boundaryField .== 1.5*u.boundaryField)
+
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.mul!(1.5, u, similar(u))
+@test all(out.internalField .== 1.5*u.internalField)
+@test all(out.boundaryField .== 1.5*u.boundaryField)
+
+# division
+u = sim[10.0, :U].scalars[1]
+out = u / 2.0
+@test all(out.internalField .== 0.5*u.internalField)
+@test all(out.boundaryField .== 0.5*u.boundaryField)
+
+u = sim[10.0, :U].scalars[1]
+out = FAT.Fields.div!(u, 3.0, similar(u))
+@test all(out.internalField .== u.internalField/3.0)
+@test all(out.boundaryField .== u.boundaryField/3.0)
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# VectorField-VectorField operations
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# subtraction 
+u = sim[10.0, :U]
+out = u - u
+for i = 1:2
+	@test sumabs2(out.scalars[i].internalField) == 0
+	@test sumabs2(out.scalars[i].boundaryField) == 0
+end
+
+u = sim[10.0, :U]
+out = FAT.Fields.sub!(u, u, similar(u))
+for i = 1:2
+	@test sumabs2(out.scalars[i].internalField) == 0
+	@test sumabs2(out.scalars[i].boundaryField) == 0
+end
+
+# addition 
+u = sim[10.0, :U]
+out = u + u
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
+end
+
+u = sim[10.0, :U]
+out = FAT.Fields.add!(u, u, similar(u))
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
+end
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# VectorField-Real operations
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# multiplication
+u = sim[10.0, :U]
+out = FAT.Fields.mul!(1.5, u, similar(u))
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+end
+
+u = sim[10.0, :U]
+out = FAT.Fields.mul!(u, 1.5, similar(u))
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+end
+
+u = sim[10.0, :U]
+out = 1.5*u
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+end
+
+u = sim[10.0, :U]
+out = u*1.5
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+end
+
+# division
+u = sim[10.0, :U]
+out = FAT.Fields.div!(u, 2.0, similar(u))
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
+end
+
+u = sim[10.0, :U]
+out = u/2.0
+for i = 1:2
+	@test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
+	@test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
+end
+
+# ~~~~~~~
+# dotgrad
+# ~~~~~~~
 
 
 # # test function, a linear function
