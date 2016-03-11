@@ -325,84 +325,9 @@ a = vort.internalField
 b = ω.internalField
 @test norm((a-b)./a, Inf) < 1e-8
 
-# # test
-
-# # test derivative
-# for (dir, val) in zip([:x, :y], [1.0, -2.0])
-# 	dpdi = zeroScalarField(mesh(sim), 2)
-# 	FAT.Fields.der!(p, dpdi, dir)
-# 	for (i, cell) in enumerate(cells(mesh(sim)))
-# 		@test dpdi.internalField[i] ≈ val
-# 	end
-# end
-
-# # cannot compute derivative with respect to z for 2d field
-# dpdi = zeroScalarField(mesh(sim), 2)
-# @test_throws ErrorException FAT.Fields.der!(p, dpdi, :z)
-# @test_throws ErrorException FAT.Fields.der!(p, dpdi, 3)
-
-# # we have not filled the boundary field by interpolation
-# dpdi = zeroScalarField(mesh(sim), 2)
-# FAT.Fields.der!(p, dpdi, :x)
-# @test all(dpdi.boundaryField .== 0.0)
-
-# # test gradient
-
-# # # test norm and inner product
-# # u.internalField[:] = 2.0
-# # @test inner(u, u) ≈ 8
-# # @test inner(u, u) == norm(u)^2
-
-# # # test zero constructor
-# # scalar = zeroField(0, mesh(sim))
-# # @test ndims(scalar.internalField) == 1
-# # @test ndims(scalar.boundaryField) == 1
-
-# # vector = zeroField(1, mesh(sim))
-# # @test ndims(vector.internalField) == 2
-# # @test ndims(vector.boundaryField) == 2
-
-# # tensor = zeroField(2, mesh(sim))
-# # @test ndims(tensor.internalField) == 3
-# # @test ndims(tensor.boundaryField) == 3
-
-
-# # # test velocity gradient 
-# # gradu = zeroField(2, mesh(sim))
-# # @time grad!(u, gradu)
-# # @time grad!(u, gradu)
-# # println(1000*minimum([@elapsed grad!(u, gradu) for i = 1:100]), " ms")
-
-
-# # @profile minimum([@elapsed grad!(u, gradu) for i = 1:1000])
-# # Profile.print()
-
-# # @code_llvm grad!(u, gradu)
-
-
-
-# # # # test gradient of a scalar field
-# # # uu = ScalarField(u.internalField[1:ncells(FAT.Fields.mesh(u))], 
-# # #  				 u.boundaryField[1:nboundaryfaces(FAT.Fields.mesh(u))], 
-# # #  				 FAT.Fields.mesh(u))
-# # # utmp = zeroField(1, mesh(sim))
-# # # println(1000*minimum([@elapsed grad!(uu, utmp) for i = 1:100]), " ms")
-
-# # # # test calculation of vorticity
-# # # gradu = zeroField(2, mesh(sim))
-# # # ω = zeroField(0, mesh(sim))
-
-# # # import PyPlot: tricontourf, show, pygui, scatter, figure, clf, savefig, plot
-
-# # # x, y, z = cellcentres(mesh(sim))
-
-# # # for (i, v) in enumerate(fields(sim, :U, 100.0:0.5:105.0))
-# # # 	ω = curl!(v, ω, gradu)
-# # # 	tricontourf(x, y, ω.internalField[:], -15:0.1:15, cmap=PyPlot.cm[:seismic])
-# # # 	name = @sprintf "figure-%04d.png" i
-# # # 	plot(x, y, "k.", ms=1, alpha=0.2)
-# # # 	savefig("vid/$name", dpi=800)
-# # # 	println(i)
-# # # 	close()
-# # # end
-# # # # tricontourf(x, y, gradu.internalField[:, 1, 1], -5:0.05:5)
+# test outputs of gradient and curl
+u = sim[1.0, :U]
+for el in [mesh, ndims, eltype]
+	@test el(grad(u)) == el(u)
+	@test el(curl(u)) == el(u)
+end
