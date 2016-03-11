@@ -18,9 +18,20 @@ import Base: call,
              similar
 
 using FAT.Meshes
-export AbstractField, ScalarField, VectorField, TensorField, inner, grad!
-export curl!, grad, mesh, curl, integral, dotgrad!, dotgrad
-export projections
+
+export AbstractField, 
+       ScalarField, 
+       VectorField, 
+       TensorField, 
+       inner, 
+       grad, 
+       grad!,
+       curl, 
+       curl!,
+       mesh, 
+       dotgrad, 
+       dotgrad!, 
+       projections
 
 
 """ Abstract type for fields
