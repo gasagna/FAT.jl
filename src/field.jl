@@ -294,9 +294,7 @@ function dotgrad!{D, T}( u::VectorField{D, T},
     fill!(out, zero(T))
     for di = 1:D
         for dj = 1:D
-            muladd!(u[dj], 
-                    ∇v[di, dj], 
-                    out[di], out[di])
+            muladd!(u[dj], ∇v[di, dj], out[di], out[di])
         end
     end
     out
