@@ -4,6 +4,7 @@
 module Fields
 
 import Base: call, 
+             ==,
              *, 
              /, 
              +,
@@ -152,6 +153,11 @@ ndims{D}(u::AbstractField{D}) = D
 " Get the mesh of a field "
 mesh(u::AbstractField) = u.mesh
 
+# equality between fields
+==(u::ScalarField, v::ScalarField) = (u.internalField == v.internalField && 
+                                      u.boundaryField == v.boundaryField)
+==(u::VectorField, v::VectorField) = u.scalars == v.scalars
+==(u::TensorField, v::TensorField) = u.vectors == v.vectors
 
 # similar, fill! and zero
 similar{D, T}(u::ScalarField{D, T}) = ScalarField(mesh(u), D, T)
@@ -454,7 +460,7 @@ function projections{T<:VectorField}(us::AbstractVector{T},
     a = zeros(eltype(uis[1]), M, N)
     # need to subtract bias from us and write to tmp
     if bias != false
-        tmp = zero(us[1])
+        tmp = similar(us[1])
         for i = 1:M
             tmp = sub!(us[i], bias, tmp)
             for j = 1:N
@@ -470,16 +476,3 @@ function projections{T<:VectorField}(us::AbstractVector{T},
 end
 
 end
-
-
-
-
-
-
-
-
-
-
-
-
-

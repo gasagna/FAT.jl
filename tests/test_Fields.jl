@@ -362,3 +362,28 @@ for el in [mesh, ndims, eltype]
 	@test el(grad(u)) == el(u)
 	@test el(curl(u)) == el(u)
 end
+
+# ~~~~~~~~~~~
+# projections
+# ~~~~~~~~~~~
+us = collect(fields(sim, Val{:U}))
+C = projections(us, us)
+@test issym(C) == true
+@test C[1, 2] == inner(us[1], us[2])
+@test C[5, 3] == inner(us[5], us[3])
+
+C = projections(us, us; bias=5*us[1])
+@test C[1, 2] == inner(us[1] - 5*us[1], us[2])
+@test C[5, 3] == inner(us[5] - 5*us[1], us[3])
+
+
+# ~~~~
+# mean
+# ~~~~
+us = collect(fields(sim, Val{:U}))
+a = mean(us)
+b = sum(us)/length(us)
+for i = 1:2
+	@test a[i].internalField ≈ b[i].internalField
+	@test a[i].boundaryField ≈ b[i].boundaryField
+end
