@@ -56,6 +56,25 @@ end
 @test_throws ErrorException VectorField(mesh(sim), 4)
 @test_throws ErrorException VectorField(mesh(sim), 1)
 
+# test indexing syntax for vector and tensor fields
+u = sim[10.0, :U]
+for (i, ids) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
+	for id in ids
+		@test u[id] == u.scalars[i]
+	end
+end
+
+u = grad(sim[10.0, :U])
+for (i, ids) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
+	for (j, jds) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
+		for id in ids
+			for jd in jds
+				@test u[id, jd] == u.vectors[i].scalars[j]
+			end
+		end
+	end
+end
+
 # test similar
 for typ in [ScalarField, VectorField, TensorField]
 	@eval begin

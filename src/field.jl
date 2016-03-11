@@ -8,6 +8,7 @@ import Base: call,
              /, 
              +,
              -,
+             getindex,
              norm,
              show,
              eltype,
@@ -102,6 +103,14 @@ end
 VectorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
     VectorField(ntuple(i->ScalarField(mesh, D, dtype), D), mesh)
 
+# add syntax such as u[1] or u[:x]
+@inline function getindex{D}(u::VectorField{D}, i::Union{Integer, Symbol}) 
+    D == 3 && (i == 3 || i == :w || i == :W || i == :z) && return u.scalars[3]
+              (i == 2 || i == :v || i == :V || i == :y) && return u.scalars[2]
+              (i == 1 || i == :u || i == :U || i == :x) && return u.scalars[1]
+    throw(BoundsError("component `$i` not understood"))
+end
+
 """ Type representing tensor fields, e.g. the velocity gradient tensor
 
     Notes
@@ -121,6 +130,18 @@ end
 TensorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
     TensorField(ntuple(i->VectorField(mesh, D, dtype), D), mesh)
 
+# add syntax such as u[1] or u[:x]
+@inline function getindex{D}(u::TensorField{D}, i::Union{Integer, Symbol}) 
+    D == 3 && (i == 3 || i == :w || i == :W || i == :z) && return u.vectors[3]
+              (i == 2 || i == :v || i == :V || i == :y) && return u.vectors[2]
+              (i == 1 || i == :u || i == :U || i == :x) && return u.vectors[1]
+    throw(BoundsError("component `$i` not understood"))
+end
+
+# add syntax such as u[1] or u[:x]
+@inline getindex{D}(u::TensorField{D}, 
+                    i::Union{Integer, Symbol},
+                    j::Union{Integer, Symbol}) = u[i][j]
 
 " Get the type of the field data "
 eltype{D, T}(u::AbstractField{D, T}) = T
@@ -145,7 +166,7 @@ zero{D, T}(u::ScalarField{D, T}) = fill!(ScalarField(mesh(u), D, T), zero(T))
 
 function fill!{D, T}(u::VectorField{D, T}, val::Real)
     for d = 1:D
-        fill!(u.scalars[d], zero(T))
+        fill!(u[d], zero(T))
     end
     u
 end
@@ -153,7 +174,7 @@ zero{D, T}(u::VectorField{D, T}) = fill!(VectorField(mesh(u), D, T), zero(T))
 
 function fill!{D, T}(u::TensorField{D, T}, val::Real)
     for d = 1:D
-        fill!(u.vectors[d], zero(T))
+        fill!(u[d], zero(T))
     end
     u
 end
@@ -234,7 +255,7 @@ for (op, fname) in zip([:-, :+], [:sub!, :add!])
                                v::VectorField{D}, 
                              out::VectorField{D})
               for d in 1:D 
-                  $fname(u.scalars[d], v.scalars[d], out.scalars[d])
+                  $fname(u[d], v[d], out[d])
               end
               out
           end 
@@ -246,7 +267,7 @@ end
 for (op, fname) in zip([:*, :/], [:mul!, :div!])
     @eval function $fname{D}(u::VectorField{D}, v::Real, out::VectorField{D})
              for d in 1:D
-                 $fname(u.scalars[d], v, out.scalars[d])
+                 $fname(u[d], v, out[d])
              end
              out
           end 
@@ -273,9 +294,9 @@ function dotgrad!{D, T}( u::VectorField{D, T},
     fill!(out, zero(T))
     for di = 1:D
         for dj = 1:D
-            muladd!(u.scalars[dj], 
-                    ∇v.vectors[di].scalars[dj], 
-                    out.scalars[di], out.scalars[di])
+            muladd!(u[dj], 
+                    ∇v[di, dj], 
+                    out[di], out[di])
         end
     end
     out
@@ -297,8 +318,8 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
     end
     for d = 1:D
         ui, vi = symbol("u$d"), symbol("v$d")
-        push!(expr.args, :($(ui) = u.scalars[$(d)].internalField))
-        push!(expr.args, :($(vi) = v.scalars[$(d)].internalField))
+        push!(expr.args, :($(ui) = u[$(d)].internalField))
+        push!(expr.args, :($(vi) = v[$(d)].internalField))
     end
     # create loop part
     loop = :(@simd for i = 1:ncells(m) end)
@@ -381,7 +402,7 @@ end
 """ Compute gradient of `u` and write in `∇u`. """
 function grad!{D}(u::VectorField{D}, ∇u::TensorField{D})
     for d = 1:D
-        grad!(u.scalars[d], ∇u.vectors[d])
+        grad!(u[d], ∇u[d])
     end 
     ∇u
 end
@@ -389,15 +410,15 @@ end
 """ Compute gradient of `u` and write in `∇u`. """
 function grad!{D}(u::ScalarField{D}, ∇u::VectorField{D})
     for d = 1:D
-        der!(u, ∇u.scalars[d], d)
+        der!(u, ∇u[d], d)
     end 
     ∇u
 end
 
 """ Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as temporary storage. """
 function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
-    der!(u.scalars[2], ω, 1)
-    der!(u.scalars[1], tmp, 2)
+    der!(u[2], ω, 1)
+    der!(u[1], tmp, 2)
     sub!(ω, tmp, ω)
 end
 
