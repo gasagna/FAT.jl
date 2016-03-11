@@ -74,13 +74,13 @@ function OpenFoamToHDF5(casedir::AbstractString;
 		W_group["boundaryField"] = 0.0*similar(U_data_boundary)
 
 		# read vorticity field
-		# U_group = g_create(time_group, "vorticity")
+		U_group = g_create(time_group, "vorticity")
 
 		# For 2D flows we only need the last component
-		# a = read_internal_vector_field(open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
-		# U_group["internalField"] = dimensions == 2 ? a[:, end] : a
-		# b = read_boundary_vector_field(casedir, open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
-		# U_group["boundaryField"] = dimensions == 2 ? b[:, end] : b
+		a = read_internal_vector_field(open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
+		U_group["internalField"] = dimensions == 2 ? a[:, end] : a
+		b = read_boundary_vector_field(casedir, open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
+		U_group["boundaryField"] = dimensions == 2 ? b[:, end] : b
 	end
 	close(fh)
 	nothing

@@ -321,11 +321,8 @@ function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     I
 end
 
-""" L2 norm of vector field """
-norm(u::VectorField) = sqrt(inner(u, u))
-
-""" L2 norm of scalar field """
-norm(u::ScalarField) = sqrt(inner(u, u))
+""" L2 norm of vector or scalar field """
+norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
 
 """ Compute partial derivative of `u` with respect to coordinate `dir`.
     
@@ -379,7 +376,7 @@ function grad!{D}(u::VectorField{D}, ∇u::TensorField{D})
 end
                         
 """ Compute gradient of `u` and write in `∇u`. """
-function grad!{D}(u::ScalarField, ∇u::VectorField{D})
+function grad!{D}(u::ScalarField{D}, ∇u::VectorField{D})
     for d = 1:D
         der!(u, ∇u.scalars[d], d)
     end 
@@ -394,10 +391,10 @@ function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
 end
 
 # versions of the above which allocate the output
-curl(u::VectorField) = curl!(u, zeroScalarField(mesh(u), ndims(u), eltype(u)), 
-                                zeroScalarField(mesh(u), ndims(u), eltype(u)))
-grad(u::ScalarField) = grad!(u, zeroVectorField(mesh(u), ndims(u), eltype(u)))
-grad(u::VectorField) = grad!(u, zeroTensorField(mesh(u), ndims(u), eltype(u)))
+curl(u::VectorField) = curl!(u, ScalarField(mesh(u), ndims(u), eltype(u)), 
+                                ScalarField(mesh(u), ndims(u), eltype(u)))
+grad(u::ScalarField) = grad!(u, VectorField(mesh(u), ndims(u), eltype(u)))
+grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
 
 
 # --- A few convenience functions ----

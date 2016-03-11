@@ -253,24 +253,77 @@ end
 # dotgrad
 # ~~~~~~~
 
+# ~~~~~~~~~~~~~~~~~~~~~~
+# Inner product and norm
+# ~~~~~~~~~~~~~~~~~~~~~~
+# VectorField
+u = sim[10.0, :U]
+u = 0.0*u
+@test inner(u, u) == 0
 
-# # test function, a linear function
-# # FIXME: we should test different functions
-# f(x, y) = 1 + x - 2y
+# symmetry
+u = sim[10.0, :U]
+v = sim[9.0, :U]
+@test inner(u, v) == inner(v, u)
 
-# # set internal field
-# for (i, cell) in enumerate(cells(mesh(sim)))
-# 	# the average of the function f for linear function
-# 	# is the value at the cell centre.
-# 	p.internalField[i] = f(centre(cell).x, centre(cell).y)
-# end
+# set scalar fields to constants. This means that we do 
+# not test the case for which the fields vary in the
+# domain, but only the underlying "algorithm".
+for d in 1:2
+	u.scalars[d].internalField[:] = d
+end
+@test inner(u, u) ≈ 1^2 + 2^2
+@test norm(u) ≈ sqrt(5)
 
-# # we should use the faces to compute the gradient, so we 
-# # also fill the boundary field
-# for (i, face) in enumerate(boundaryfaces(mesh(sim)))
-#  	p.boundaryField[i] = f(centre(face).x, centre(face).y)
-# end
+# ScalarField
+@test inner(u.scalars[1], u.scalars[1]) ≈ 1.0
+@test inner(u.scalars[2], u.scalars[2]) ≈ 4.0
+@test inner(u.scalars[1], u.scalars[2]) ≈ 2.0
+@test inner(u.scalars[2], u.scalars[1]) ≈ 2.0
 
+@test norm(u) ≈ sqrt(5)
+
+
+# ~~~~~~~~~~~~~~~~~~~
+# Derivative and curl
+# ~~~~~~~~~~~~~~~~~~~
+# We check against the vorticity field calculated using OpenFoam. This
+# should be enough to check the correctness of our algorithm. The rest 
+# just tests the interface.
+u = sim[1.0, :U]
+ω = sim[1.0, :vorticity]
+a = curl(u).internalField
+b = ω.internalField
+@test norm((a-b)./a, Inf) < 1e-8
+
+u = sim[1.0, :U]
+ω = sim[1.0, :vorticity]
+out = ScalarField(mesh(u), ndims(u), eltype(u))
+tmp = ScalarField(mesh(u), ndims(u), eltype(u))
+a = curl!(u, out, tmp).internalField
+b = ω.internalField
+@test norm((a-b)./a, Inf) < 1e-8
+
+# ~~~~~~~~
+# Gradient
+# ~~~~~~~~
+# calculate gradient and then use OpenFoam vorticity field
+u = sim[1.0, :U]
+∇u = grad(u)
+vort = ∇u.vectors[2].scalars[1] - ∇u.vectors[1].scalars[2]
+ω = sim[1.0, :vorticity]
+a = vort.internalField
+b = ω.internalField
+@test norm((a-b)./a, Inf) < 1e-8
+
+# use in-place grad!
+u = sim[1.0, :U]
+∇u = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
+vort = ∇u.vectors[2].scalars[1] - ∇u.vectors[1].scalars[2]
+ω = sim[1.0, :vorticity]
+a = vort.internalField
+b = ω.internalField
+@test norm((a-b)./a, Inf) < 1e-8
 
 # # test
 
