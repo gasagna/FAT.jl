@@ -252,6 +252,18 @@ end
 # ~~~~~~~
 # dotgrad
 # ~~~~~~~
+u = sim[10.0, :U]
+∇u = grad(u)
+u∇u = dotgrad(u, ∇u)
+
+# this tests the 2D version
+out_1 = u.scalars[1]*∇u.vectors[1].scalars[1] + u.scalars[2]*∇u.vectors[1].scalars[2]
+@test out_1.internalField == u∇u.scalars[1].internalField
+@test out_1.boundaryField == u∇u.scalars[1].boundaryField
+out_2 = u.scalars[1]*∇u.vectors[2].scalars[1] + u.scalars[2]*∇u.vectors[2].scalars[2]
+@test out_2.internalField == u∇u.scalars[2].internalField
+@test out_2.boundaryField == u∇u.scalars[2].boundaryField
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~
 # Inner product and norm
