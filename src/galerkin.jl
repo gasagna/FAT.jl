@@ -11,10 +11,13 @@ import JLD: save,
 import Base: call
 
 import FAT.Fields: inner,
+				   ScalarField,
 				   VectorField,
+				   TensorField,
 				   curl,
 				   grad,
-				   dotgrad!
+				   dotgrad!,
+				   mesh
 
 type GalerkinModel
 	c::Array{Float64, 1}
@@ -48,16 +51,26 @@ fromfile(filename::AbstractString) = load(filename, "sys")
 """
 function GalerkinModel{T<:VectorField}(u0::T, 
 									   uis::Vector{T}, 
-									   Re::Real; symm::Bool=true)
-	# Precompute gradients and vorticity fields
-	ω0 = curl(u0)
-	∇u0 = grad(u0)
-	ωis = map(curl, uis)
-	∇uis = map(grad, uis)
-
+									   Re::Real; 
+									   symm::Bool=true, 
+									   verbose::Bool=true)
 	# build system
 	N = length(uis)
 	sys = GalerkinModel(N)
+
+	# Precompute gradients and vorticity fields
+	ω0 = curl(u0)
+	∇u0 = grad(u0)
+	ωis  = ScalarField{ndims(u0), eltype(u0), typeof(mesh(u0))}[]
+	∇uis = TensorField{ndims(u0), eltype(u0), typeof(mesh(u0))}[]
+	for i = 1:N
+		gr = grad(uis[i])
+		push!(∇uis, gr)
+		push!(ωis, gr[2, 1] - gr[1, 2])
+		verbose == true && print("\r Calculation of velocity gradient fields" *
+              ": done $i over $N"); flush(STDOUT)
+	end
+	verbose == true && println()
 
 	# temporary vector field
 	u∇u = zero(u0)
@@ -66,21 +79,37 @@ function GalerkinModel{T<:VectorField}(u0::T,
 	for i in 1:N
 		sys.c[i]  = ( - inner(ωis[i], ω0)/Re
 		              - inner(uis[i], dotgrad!(u0, ∇u0, u∇u)) )
+		verbose == true && print("\r Constant term" *
+              ": done $(round(100*i/N, 1))%"); flush(STDOUT)
 	end
+	verbose == true && println()
+
 
 	# linear term 
-	for i = 1:N, j = 1:N
-		sys.L[i, j] = ( - inner(ωis[i], ωis[j])/Re 
-					    - inner(uis[i], dotgrad!(u0, ∇uis[j], u∇u))
-					    - inner(uis[i], dotgrad!(uis[j], ∇u0, u∇u)) )
+	for i = 1:N
+		for j = 1:N
+			sys.L[i, j] = ( - inner(ωis[i], ωis[j])/Re 
+						    - inner(uis[i], dotgrad!(u0, ∇uis[j], u∇u))
+						    - inner(uis[i], dotgrad!(uis[j], ∇u0, u∇u)) )
+		end
+		verbose == true && print("\r Linear term" *
+              ": done $(round(100*i/N, 1))%"); flush(STDOUT)
 	end
+	verbose == true && println()
+
 
 	# quadratic term. This could save some symmetries
-	for k = 1:N, j = 1:N, i = 1:N
-		if i != k 
-			sys.Q[i, j, k] = - inner(uis[i], dotgrad!(uis[j], ∇uis[k], u∇u))
+	for k = 1:N
+		for j = 1:N, i = 1:N
+			if i != k 	
+				sys.Q[i, j, k] = - inner(uis[i], dotgrad!(uis[j], ∇uis[k], u∇u))
+			end
 		end
+		verbose == true && print("\r Nonlinear term" *
+              ": done $(round(100*k/N, 1))%"); flush(STDOUT)
 	end
+	verbose == true && println()
+
 
 	if symm == true
 		# manually enforce symmetries in the nonlinear term
