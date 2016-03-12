@@ -5,10 +5,13 @@ module Utils
 
 export OpenFoamToHDF5
 
-import HDF5: h5open, g_create, close, attrs
+import HDF5: h5open, 
+			 g_create, 
+			 close, 
+			 attrs
 
-import FAT.Constants: BC_FIXEDVALUE, BC_EMPTY
-import FAT.OFIO: read_internal_scalar_field, read_internal_vector_field, read_boundary_vector_field
+import FAT.OFIO: read_internal_vector_field, 
+				 read_boundary_vector_field
 
 """ Create an array of time strings at which a snapshot is available """
 get_snapshots_times(casedir::AbstractString) = 
@@ -33,56 +36,79 @@ get_snapshots_times(casedir::AbstractString) =
 	   verbose : if true, print current time being read
 """
 function OpenFoamToHDF5(casedir::AbstractString; 
+						toload::Vector{Symbol}=[:U, :W],
+						skip::Integer=1,
 					    fielddtype::Type=Float64, 
 					    overwrite::Bool=false, 
 					    dimensions::Integer=2, 
 					    verbose=true)
 	# FIXME: check if it is better to have multiple hdf files
 	# check dimensions
-	dimensions in [2, 3] || error("Number of spatial dimensions must be either 2 or 3")
+	dimensions in [2, 3] || error("`dimensions` must be either 2 or 3")
 
 	# make filename
 	filename = joinpath(casedir, "data.h5")
 
 	# check not to overwrite
-	overwrite || ispath(filename) && error("File $filename already exists. Delete it first")
+	overwrite || ispath(filename) && error("$filename already exists.")
 	
 	# open HDF5 main file and set number of dimensions in an attribute
 	fh = h5open(filename, "w")
 	attrs(fh)["dimensions"] = string(dimensions)
+	try 
+		# get times
+		times = get_snapshots_times(casedir)
+		0 <= skip < length(times) || error("value of `skip` not meaningful")
 
-	# skip the first one, as it is the initial condition file is difficult 
-	# to parse and we do not care
-	for time in get_snapshots_times(casedir)[2:end]
-		# use six decimal digits for the groups names
-		ts = @sprintf "%.6f" parse(Float64, time)
+		for (i, time) in enumerate(times)
+			# skip the first `skip` directories, as we might want to skip the 
+			# initial condition, whose files are difficult to parse and we 
+			# might not care
+			i <= skip && continue
 
-		# debug output
-		verbose && print("\r Reading t=$(ts)")
-		
-		# create groups for each time
-		time_group = g_create(fh, ts)
-		
-		U_group = g_create(time_group, "U")
-		U_data_internal = read_internal_vector_field(open(joinpath(casedir, time, "U")), dimensions, fielddtype)
-		U_group["internalField"] = U_data_internal
-		U_data_boundary = read_boundary_vector_field(casedir, open(joinpath(casedir, time, "U")), dimensions, fielddtype)
-		U_group["boundaryField"] = U_data_boundary
+			# use six decimal digits for the groups names
+			ts = @sprintf "%.6f" parse(Float64, time)
 
-		W_group = g_create(time_group, "W")
-		W_group["internalField"] = read_internal_vector_field(open(joinpath(casedir, time, "W")), dimensions, fielddtype)
-		W_group["boundaryField"] = 0.0*similar(U_data_boundary)
+			# debug output
+			verbose && print("\r Reading t=$(ts)"); flush(STDOUT)
+			
+			# create groups for each time
+			time_group = g_create(fh, ts)
 
-		# read vorticity field
-		U_group = g_create(time_group, "vorticity")
-
-		# For 2D flows we only need the last component
-		a = read_internal_vector_field(open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
-		U_group["internalField"] = dimensions == 2 ? a[:, end] : a
-		b = read_boundary_vector_field(casedir, open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
-		U_group["boundaryField"] = dimensions == 2 ? b[:, end] : b
+			# we need to remember how big is the boundary file
+			N = 0 
+			if :U in toload 
+				U_group = g_create(time_group, "U")
+				U_group["internalField"] = read_internal_vector_field(
+						open(joinpath(casedir, time, "U")), dimensions, fielddtype)
+				data = read_boundary_vector_field(
+						casedir, open(joinpath(casedir, time, "U")), 
+						dimensions, fielddtype)
+				N = length(data)
+				U_group["boundaryField"] = data
+			end
+			if :W in toload 
+				W_group = g_create(time_group, "W")
+				W_group["internalField"] = read_internal_vector_field(
+						open(joinpath(casedir, time, "W")), dimensions, fielddtype)
+				W_group["boundaryField"] = 0.0*zeros(fielddtype, N, dimensions)
+			end
+			if :vorticity in toload 
+				U_group = g_create(time_group, "vorticity")
+				# For 2D flows we only need the last component
+				a = read_internal_vector_field(
+					open(joinpath(casedir, time, "vorticity")), 3, fielddtype)
+				U_group["internalField"] = dimensions == 2 ? a[:, end] : a
+				b = read_boundary_vector_field(
+					casedir, open(joinpath(casedir, time, "vorticity")), 3, 
+					fielddtype)
+				U_group["boundaryField"] = dimensions == 2 ? b[:, end] : b
+			end
+		end
+		verbose && println("\n")
+	finally
+		close(fh)
 	end
-	close(fh)
 	nothing
 end
 
