@@ -3,11 +3,18 @@
 # ------------------------------------------------------------------- #
 module Galerkin
 
-export GalerkinModel, ∂ai∂t
+export GalerkinModel, tofile, fromfile
+
+import JLD: save,
+			load
 
 import Base: call
-import FAT.Fields: inner, grad!, curl!, VectorField, curl, grad
-import FAT.Fields: dotgrad!, AbstractField
+
+import FAT.Fields: inner,
+				   VectorField,
+				   curl,
+				   grad,
+				   dotgrad!
 
 type GalerkinModel
 	c::Array{Float64, 1}
@@ -22,7 +29,15 @@ type GalerkinModel
 	end
 end
 
-""" Build a Galerkin model from the basis functions `us` and base flow `u0`, for Reynolds number `Re`.
+# save model to a .jld file
+tofile(filename::AbstractString, sys::GalerkinModel) = 
+	save(filename, "sys", sys)
+
+# load model from a .jld file
+fromfile(filename::AbstractString) = load(filename, "sys")
+
+""" Build a Galerkin model from the basis functions `us` and base 
+	flow `u0`, for Reynolds number `Re`.
 
 	Parameters
 	----------
@@ -30,7 +45,6 @@ end
 	  us : the basis functions
 	  Re : Reynolds number
 	symm : enforce symmetries in the nonlinear term
-
 """
 function GalerkinModel{T<:VectorField}(u0::T, 
 									   uis::Vector{T}, 
@@ -81,10 +95,7 @@ function GalerkinModel{T<:VectorField}(u0::T,
 end
 
 
-#=
-	Galerkin models are callable objects.
-
-=# 
+# Galerkin models are callable objects.
 function call(sys::GalerkinModel, xdot::AbstractVector, x::AbstractVector)
 	N = length(x)
 	@inbounds begin 
@@ -99,18 +110,6 @@ function call(sys::GalerkinModel, xdot::AbstractVector, x::AbstractVector)
 		end
 	end
 	xdot
-end
-
-""" Time derivative of mode `ui`, with vorticity `ωi` 
-	computed against current DNS solution given by 
-	`u∇u`, and `ω`. 
-"""
-function ∂ai∂t{D, T, M}(u∇u::AbstractField{D, T, M}, 
-			  	          ω::AbstractField{D, T, M}, 
-				         ui::AbstractField{D, T, M},
-			             ωi::AbstractField{D, T, M},
-			             Re::Real) 
-	- inner(ui, u∇u) - inner(ω, ωi)/Re
 end
 
 end
