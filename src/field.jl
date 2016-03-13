@@ -454,7 +454,8 @@ end
 """
 function projections{T<:VectorField}(us::AbstractVector{T}, 
                                      uis::AbstractVector{T};
-                                     bias::Union{Bool, T}=false)
+                                     bias::Union{Bool, T}=false,
+                                     verbose::Bool=true)
     M = length(us)
     N = length(uis)
     a = zeros(eltype(uis[1]), M, N)
@@ -466,10 +467,16 @@ function projections{T<:VectorField}(us::AbstractVector{T},
             for j = 1:N
                 a[i, j] = inner(tmp, uis[j])
             end
+            verbose == true && print("\r Completed" *
+              ": done $(round(100*i/M))%"); flush(STDOUT)
         end
     else 
-        for i = 1:M, j = 1:N
-            a[i, j] = inner(us[i], uis[j])
+        for i = 1:M
+            for j = 1:N
+                a[i, j] = inner(us[i], uis[j])
+            end
+            verbose == true && print("\r Completed" *
+              ": done $(round(100*i/M))%"); flush(STDOUT)
         end
     end
     a
