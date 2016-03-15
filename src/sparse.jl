@@ -1,8 +1,14 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
+
 module Sparse
-export monoexps, nmonomials, regrmat, regrmat!
+
+export monoexps, 
+       nmonomials, 
+       regrmat, 
+       regrmat!
+
 """
     Calculates the exponents of the state variables in each 
     monomial term for a quadratic polynomial in `N` variables.
