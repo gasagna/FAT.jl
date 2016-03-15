@@ -137,12 +137,18 @@ inplane{T}(points::NTuple{3, Point3D{T}}) = true
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Various aliases used for convenience
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-typealias QuadFace{T} PolygonalFace{T, 4}
+for (name, N) in zip([:TriFace, :QuadFace], [3, 4])
+	@eval typealias $name{T} PolygonalFace{T, N}
 
-# overload call function to allow using QuadFace as a constructor without type parameter
-call{T}(q::Type{QuadFace}, points::NTuple{4, UInt32},
-					       centre::Point3D{T},
-						   svec::Point3D{T},
-						   owner::UInt32,
-						   neighbour::UInt32) = PolygonalFace{T, 4}(points, centre, svec,
-															        owner, neighbour)
+	# overload call function to allow using a constructor without type parameter
+	@eval call{T}(q::Type{$name}, 
+				  points::NTuple{N, UInt32},
+				  centre::Point3D{T},
+	   		      svec::Point3D{T},
+			      owner::UInt32,
+			      neighbour::UInt32) = PolygonalFace{T, N}(points, 
+			      										   centre, 
+			      										   svec,
+			      										   owner, 
+			      										   neighbour)
+end

@@ -60,12 +60,15 @@ function _centreAndVolume{T, M}(faces::NTuple{M, PolygonalFace{T}})
 	ctr, vol/3.0
 end
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~~~ Hexahedral cells ~~~~~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-typealias HexaCell{T} PolyHedralCell{T, 6}
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~	
+for (name, M) in zip([:TetraCell, :PentaCell, :HexaCell], [4, 5, 6])
+	# create type 
+	@eval typealias $name{T} PolyHedralCell{T, M}
 
-# overload call function to allow using HexaCell as a constructor without type parameter
-call{T}(q::Type{HexaCell}, faces::NTuple{6, UInt32}, centre::Point3D{T}, volume::T) = 
-	PolyHedralCell{T, 6}(faces, centre, volume)
+	# overload call function to allow using a constructor without type parameter
+	@eval call{T}(q::Type{$name}, 
+				  faces::NTuple{M, UInt32}, 
+				  centre::Point3D{T}, 
+				  volume::T) = PolyHedralCell{T, M}(faces, centre, volume)
+end
