@@ -53,7 +53,7 @@ function show(io::IO, u::AbstractField)
     print(io, "  ~ Spatial dimensions : $(ndims(u))\n")
     print(io, "  ~ Mesh information:\n")
     print(io, "    ~ ")
-    show(io, mesh(u); space="     ")
+    show(io, mesh(u); gap="     ")
 end
 
 """ Type representing scalar fields, e.g. pressure, and velocity components.
@@ -313,12 +313,13 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~ Inner products, norms, and integrals ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
-@generated function inner{D, T, M}(u::VectorField{D, T, M}, v::VectorField{D, T, M})
+@generated function inner{D, T, M}(u::VectorField{D, T, M}, 
+                                   v::VectorField{D, T, M})
   # setup variables
     expr = quote
         I = zero(T)
         m = mesh(u)
-        c = m.cells
+        cvolumes_ = m.cvolumes
     end
     for d = 1:D
         ui, vi = symbol("u$d"), symbol("v$d")
@@ -333,7 +334,7 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
         ui, vi = symbol("u$d"), symbol("v$d")
         push!(loopbody, :(@inbounds x+= $(ui)[i] * $(vi)[i]))
     end
-    push!(loopbody, :(@inbounds I += x*volume(c[i])))
+    push!(loopbody, :(@inbounds I += x*cvolumes_[i]))
     # now push the whole loop to expr and return 
     push!(expr.args, loop)
     push!(expr.args, :(return I))
@@ -348,11 +349,11 @@ end
 function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     I = zero(T)
     m = mesh(u)
-    c = m.cells
-    ud = u.internalField
-    vd = v.internalField
+    cvolumes_ = m.cvolumes
+    ui_ = u.internalField
+    vi_ = v.internalField
     @simd for i = 1:ncells(m)
-        @inbounds I += ud[i]*vd[i]*volume(c[i])
+        @inbounds I += ui_[i]*vi_[i]*cvolumes_[i]
     end
     I
 end
@@ -366,40 +367,66 @@ norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
     ----------
       u : input scalar field
     out : scalar field containing ∂u/∂dir
-    dir : either 1, 2, or 3, for x, y, or z
+    dir : either 1, 2, or 3
 
     Notes
     -----
-    Gauss formula is used for computation of the average gradient in the cell. A linear
-    interpolation of the face value is used. This corresponds to the 'Gauss linear' 
-    gradScheme and to the 'linear' interpolationScheme in OpenFOAM.
+    Gauss formula is used for computation of the average gradient in the 
+    cell. A linear interpolation of the face value is used. This corresponds 
+    to the 'Gauss linear' gradScheme and to the 'linear' interpolationScheme 
+    in OpenFOAM.
 """
-function der!{D, T}(u::ScalarField{D, T}, out::ScalarField{D, T}, dir::Union{Integer, Symbol})
-    # for 2D simulation we cannot compute the gradient with respect to the third direction
-    D == 2 && (dir == 3 || dir == :z) && error("Cannot compute partial "*
-                                                "derivative with respect to z for 2D field") 
-    @inbounds begin
-        out.internalField[:] = zero(T)
-        out.boundaryField[:] = zero(T)
-        # FIXME we should only loop over the non-empty patches. This
-        # does not do any harm now, because empty face have 'usually' opposite 
-        # surface vectors that cancel each other. In case of axisymmetric problems
-        # this should be fixed. However, this is inefficient.
-        for (i, face) in enumerate(boundaryfaces(mesh(u)))
-            # println(i, " ", svec(face, Val{dir}), " ", u.boundaryField[i])
-            out.internalField[ownerID(face)] += svec(face, Val{dir})*u.boundaryField[i]
+function der!{D, T}(u::ScalarField{D, T}, 
+                    out::ScalarField{D, T}, 
+                    dir::Integer)
+    # for 2D simulations we cannot compute the gradient with respect 
+    # to the third direction, it does not make sense to do it
+    D == 2 && dir == 3 && error("Cannot compute partial derivative " *
+                                "with respect to z for 2D field") 
+    out.internalField[:] = zero(T)
+    out.boundaryField[:] = zero(T)
+
+    # need to get these fields out of the loop for better efficiency
+    m = u.mesh
+    αs = m.αs
+    out_ = out.internalField
+    ui_ = u.internalField
+    ub_ = u.boundaryField
+    fowners_ = m.fowners
+    fneighs_ = m.fneighs
+    fsvecs_ = m.fsvecs
+    cvolumes_ = m.cvolumes
+
+    # contributions only from non-empty boundary faces
+    for patch in values(patches(m))
+        if !(isempty(patch))
+            for (faceID, ibnd) in patchfaces(m, patch)
+                @inbounds out_[fowners_[faceID]] += (
+                    getfield(fsvecs_[faceID], dir)*ub_[ibnd] )
+            end
         end
-        for (α, face) in zip(mesh(u).αs, internalfaces(mesh(u)))
-            face_value = (one(α)-α)*u.internalField[ownerID(face)] + α*u.internalField[neighbourID(face)]
-            out.internalField[ownerID(face)]     += svec(face, Val{dir})*face_value
-            out.internalField[neighbourID(face)] -= svec(face, Val{dir})*face_value
-        end
-        for (i, cell) in enumerate(cells(mesh(u)))
-            out.internalField[i] /= volume(cell)
-        end
-        # FIXME: now we should fill the boundary field, 
-        # either by interpolation or using the boundary conditions
     end
+
+    # contributions from the internal faces
+    @simd for faceID in internalfaces(m)
+        @inbounds  begin 
+            foi = fowners_[faceID]
+            fni = fneighs_[faceID]
+            fvalue = (1.0 - αs[faceID])*ui_[foi] + αs[faceID]*ui_[fni]
+            value = getfield(fsvecs_[faceID], dir)*fvalue
+            out_[foi] += value
+            out_[fni] -= value
+        end
+    end
+
+    # divide by the cell volume now, as for Gauss formula
+    @simd for i = 1:ncells(m)
+        out_[i] /= cvolumes_[i]
+    end
+
+    # FIXME: now we should fill the boundary field, 
+    # either by interpolation or using the boundary conditions. This
+    # requires some thoughts and programming.
     out
 end
 
@@ -419,7 +446,7 @@ function grad!{D}(u::ScalarField{D}, ∇u::VectorField{D})
     ∇u
 end
 
-""" Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as temporary storage. """
+""" Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as storage. """
 function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
     der!(u[2], ω, 1)
     der!(u[1], tmp, 2)

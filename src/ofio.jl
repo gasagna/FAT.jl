@@ -6,7 +6,7 @@ module OFIO
 import FAT.Constants: BC_EMPTY, BC_FIXEDVALUE
 
 """ Check if directory is an OpenFoam case directory """
-isCaseDir(casedir::AbstractString) = 
+iscasedir(casedir::AbstractString) = 
 	(files = readdir(casedir); return "constant" in files && "system" in files)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,9 +45,8 @@ function read_points(casedir::AbstractString)
 	# out = Vector{Vector{Float64}}(goToGoodLine(f))
 	out = Vector{NTuple{3, Float64}}(goToGoodLine(f))
 	for i = 1:length(out)
-		m = matchall(r"[-+]?[0-9]*\.?[0-9]+", readline(f))
+		m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
 		@inbounds out[i] = (parse(Float64, m[1]), parse(Float64, m[2]), parse(Float64, m[3]))
-		# out[i] = Float64[parse(Float64, m[1]), parse(Float64, m[2]), parse(Float64, m[3])]
 	end
 	out
 end
@@ -201,7 +200,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimens
 				g = match(r"\(([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\)", readline(f))
 				# set all entries to the same value	
 				val =  [parse(dtype, g[i]) for i in 1:dimensions]
-				for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2])
+				for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
 					# we need to remove the number of internal faces from i
 					i_ = i - nInternalFaces
 					output[i_, :] = val
@@ -219,26 +218,11 @@ function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimens
 				end
 			else
 				# if we do not know the type of the patch we raise an error
-				error("patchtype $patchtype not understood")
+				#error("patchtype $patchtype not understood")
+                nothing
 			end
 		end
 	end 
 	output
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 end

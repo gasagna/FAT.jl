@@ -29,4 +29,3 @@ patchname(p::Patch) = p.name
 
 " ID of last face - This is 1-based "
 @inline lastfaceID(p::Patch) = Int(p.startface + p.nfaces - 1) 
-
