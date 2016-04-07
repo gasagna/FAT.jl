@@ -1,9 +1,6 @@
 using Base.Test
 using FAT.Meshes
 
-# mainly used for testing and not for actual code
-asarray{T}(p::Point{T}) = T[p.x, p.y, p.z]
-
 # ~~~ Tests for PolygonalFace{Float64, 4} ~~~
 
 # regular face, the unit square

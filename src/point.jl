@@ -31,6 +31,9 @@ end
 Point(x::Real, y::Real, z::Real) = Point(promote(x, y, z)...)
 show(io::IO, p::Point) = print(io, "($(p.x), $(p.y), $(p.z))")
 
+# mainly used for testing and not for actual code
+asarray{T}(p::Point{T}) = T[p.x, p.y, p.z]
+
 +(a::Point, b::Point) = Point(a.x+b.x, a.y+b.y, a.z+b.z)
 -(a::Point, b::Point) = Point(a.x-b.x, a.y-b.y, a.z-b.z)
 -(a::Point) = Point(-a.x, -a.y, -a.z)

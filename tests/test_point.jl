@@ -1,9 +1,6 @@
 using Base.Test
 using FAT.Meshes
 
-# mainly used for testing and not for actual code
-asarray{T}(p::Point{T}) = T[p.x, p.y, p.z]
-
 a = Point(1.0, 0.0, 2.0)
 b = Point(0.0, 1.0, 0.0)
 c = Point(0.1, 0.2, 0.3)
