@@ -1,6 +1,5 @@
 using Base.Test
 using FAT.Meshes
-
 # ~~~ Tests for PolygonalFace{Float64, 4} ~~~
 
 # regular face, the unit square
