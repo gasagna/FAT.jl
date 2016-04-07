@@ -40,13 +40,14 @@ function goToGoodLine(f::IOStream)
 end
 
 """ Read the `points` file in the constant/polyMesh directory """
-function read_points(casedir::AbstractString)
+function read_points(casedir::AbstractString, dtype::Type)
 	f = open(joinpath(casedir, "constant/polyMesh/points"))
-	# out = Vector{Vector{Float64}}(goToGoodLine(f))
-	out = Vector{NTuple{3, Float64}}(goToGoodLine(f))
+	out = Vector{NTuple{3, dtype}}(goToGoodLine(f))
 	for i = 1:length(out)
 		m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
-		@inbounds out[i] = (parse(Float64, m[1]), parse(Float64, m[2]), parse(Float64, m[3]))
+		@inbounds out[i] = (parse(dtype, m[1]), 
+                            parse(dtype, m[2]), 
+                            parse(dtype, m[3]))
 	end
 	out
 end
@@ -73,8 +74,8 @@ function read_on(casedir::AbstractString, filename::AbstractString)
 	UInt32[parse(UInt32, readline(f)) + one(UInt32) for i = 1:goToGoodLine(f)]
 end
 
-function reader(casedir::AbstractString, filename::AbstractString)
-	if     filename == "points"    return read_points(casedir)
+function reader(casedir::AbstractString, filename::AbstractString; dtype::Type=Float64)
+	if     filename == "points"    return read_points(casedir, dtype)
     elseif filename == "faces"     return read_faces(casedir)
     elseif filename == "owner"     return read_on(casedir, "owner")
     elseif filename == "neighbour" return read_on(casedir, "neighbour")

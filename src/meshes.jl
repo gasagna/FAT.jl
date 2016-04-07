@@ -179,7 +179,7 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
     # read all data. These are 1-based, and not 0-based as the OF files
-    points_data = reader(casedir, "points")
+    points_data = reader(casedir, "points"; dtype=dtype)
     faces_data  = reader(casedir, "faces")
     fowners     = reader(casedir, "owner")
     fneighs     = reader(casedir, "neighbour")

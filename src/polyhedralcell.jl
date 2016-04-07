@@ -72,7 +72,7 @@ function _centreAndVolume{T, M}(faces::NTuple{M, PolygonalFace{T}})
 	ctr = Point(zero(T), zero(T), zero(T))
 	for face in faces
 		pyrvol = area(face)*distance(centre(face), cEst)
-		pyrctr = centre(face)*0.75 + cEst*0.25
+		pyrctr = centre(face)*3/4 + cEst*1/4
 		vol += pyrvol
 		ctr += pyrctr*pyrvol
 	end
