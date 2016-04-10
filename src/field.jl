@@ -424,7 +424,7 @@ function der!{D, T}(u::ScalarField{D, T},
         out_[i] /= cvolumes_[i]
     end
 
-    # FIXME: now we should fill the boundary field, 
+    # FIXME: now we should fill the boundary field of the derivative 
     # either by interpolation or using the boundary conditions. This
     # requires some thoughts and programming.
     out
