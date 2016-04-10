@@ -77,10 +77,10 @@ function SimulationData(casedir::AbstractString;
     t = sort!([parse(Float64, t) for t in names(fh)])
     # read mesh
     msh = Mesh(casedir, meshdtype)
-    # Parse the number of dimensions of the simulation, either 2 or 3
     SimulationData(msh, 
                    fh, 
                    t, 
+                   # Parse the number of dimensions of the simulation
                    parse(Int, read(attrs(fh)["dimensions"])), 
                    fielddtype)
 end
