@@ -100,7 +100,7 @@ type Mesh{T}
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
         ninternalfaces = length(fcentres) - nboundaryfaces
         αs = Vector{T}(ninternalfaces)
-        @simd for i = 1:ninternalfaces
+        for i = 1:ninternalfaces
             αs[i] = interpolationWeight(fcentres[i], 
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
