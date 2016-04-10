@@ -122,10 +122,20 @@ eltype{T}(::Mesh{T}) = T
 " Returns a range object to iterate over all internal faces "
 @inline internalfaces(m::Mesh) = 1:m.ninternalfaces
 
-" Returns two range objects to iterate over the faces of a patch "
+""" 
+    Returns two range objects in a zip to iterate over the faces of a patch. 
+    The first contains indices of the faces, so that we can index the 
+    vectors `fowners` and `fneighs` appropriately. Note that these two 
+    have length equal to the total number of faces in the mesh, i.e. 
+    both the internal and external faces.  The second range object
+    is used to index the vector `.boundaryField` in `ScalarField`
+    object, which contains the solution at the centres of the boundary 
+    faces. An example of usage of this function is the function 
+    `der!` in src/field.jl.
+"""
 function patchfaces(m::Mesh, p::Patch) 
     faceIDs = firstfaceID(p):lastfaceID(p)
-    return faceIDs, faceIDs - ninternalfaces(m)
+    return zip(faceIDs, faceIDs - ninternalfaces(m))
 end
 
 " Total number of faces in the mesh "
