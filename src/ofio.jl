@@ -54,13 +54,14 @@ end
 
 """ Read the `faces` file in the constant/polyMesh directory """
 function read_faces(casedir::AbstractString)
+    # open faces file
 	f = open(joinpath(casedir, "constant/polyMesh/faces"))
     # number of faces
     N = goToGoodLine(f)
 	# faces can have any number of points
 	out = Tuple{Vararg{UInt32}}[]
 	for i = 1:N
-        # parse line
+        # parse line: this is the most intensive bit
 		m = split(readline(f), [' ', '(', ')'],  keep=false)
         # number of face points
 		M = parse(Int, m[1])
