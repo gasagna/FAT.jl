@@ -55,29 +55,32 @@ end
 """ Read the `faces` file in the constant/polyMesh directory """
 function read_faces(casedir::AbstractString)
 	f = open(joinpath(casedir, "constant/polyMesh/faces"))
+    # number of faces
+    N = goToGoodLine(f)
 	# faces can have any number of points
-	out = Vector{Tuple{Vararg{UInt32}}}(goToGoodLine(f))
-	for i = 1:length(out)
+	out = Tuple{Vararg{UInt32}}[]
+	for i = 1:N
+        # parse line
 		m = split(readline(f), [' ', '(', ')'],  keep=false)
         # number of face points
-		N = parse(Int, m[1])
-        # out[i] = ntuple(i->parse(UInt32, m[i+1]) + UInt32(1), N)
-        # we add UInt32(1) because we want a 1-based data structure
-        if N == 3
-            out[i] = (parse(UInt32, m[2]) + UInt32(1),
-                      parse(UInt32, m[3]) + UInt32(1), 
-                      parse(UInt32, m[4]) + UInt32(1))
-        elseif N == 4
-            out[i] = (parse(UInt32, m[2]) + UInt32(1),
-                      parse(UInt32, m[3]) + UInt32(1), 
-                      parse(UInt32, m[4]) + UInt32(1), 
-                      parse(UInt32, m[5]) + UInt32(1))
-        elseif N < 3 
+		M = parse(Int, m[1])
+        # we add 0x00000001 because we want a 1-based data structure
+        if M == 3
+            push!(out, (parse(UInt32, m[2]) + 0x00000001,
+                        parse(UInt32, m[3]) + 0x00000001, 
+                        parse(UInt32, m[4]) + 0x00000001))
+        elseif M == 4
+            push!(out, (parse(UInt32, m[2]) + 0x00000001,
+                        parse(UInt32, m[3]) + 0x00000001, 
+                        parse(UInt32, m[4]) + 0x00000001, 
+                        parse(UInt32, m[5]) + 0x00000001))
+        elseif M < 3 
             error("found a face with less than 3 points!!") 
-        elseif N > 4
+        elseif M > 4
             error("found a face with more than 4 points!!") 
         end
 	end
+    close(f)
 	out
 end
 
