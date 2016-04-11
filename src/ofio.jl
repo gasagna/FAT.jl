@@ -61,11 +61,22 @@ function read_faces(casedir::AbstractString)
 		m = split(readline(f), [' ', '(', ')'],  keep=false)
         # number of face points
 		N = parse(Int, m[1])
-        # checks. We currently support triangular and quadrilateral faces
-        N < 3 && error("found a face with less than 3 points!!") 
-        N > 4 && error("found a face with more than 4 points!!") 
-		# we add UInt32(1) because we want a 1-based data structure
-        out[i] = ntuple(i->parse(UInt32, m[i+1]) + UInt32(1), N)
+        # out[i] = ntuple(i->parse(UInt32, m[i+1]) + UInt32(1), N)
+        # we add UInt32(1) because we want a 1-based data structure
+        if N == 3
+            out[i] = (parse(UInt32, m[2]) + UInt32(1),
+                      parse(UInt32, m[3]) + UInt32(1), 
+                      parse(UInt32, m[4]) + UInt32(1))
+        elseif N == 4
+            out[i] = (parse(UInt32, m[2]) + UInt32(1),
+                      parse(UInt32, m[3]) + UInt32(1), 
+                      parse(UInt32, m[4]) + UInt32(1), 
+                      parse(UInt32, m[5]) + UInt32(1))
+        elseif N < 3 
+            error("found a face with less than 3 points!!") 
+        elseif N > 4
+            error("found a face with more than 4 points!!") 
+        end
 	end
 	out
 end
