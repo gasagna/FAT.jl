@@ -55,15 +55,17 @@ end
 """ Read the `faces` file in the constant/polyMesh directory """
 function read_faces(casedir::AbstractString)
 	f = open(joinpath(casedir, "constant/polyMesh/faces"))
-	# a face has four points
-	out = Vector{Tuple{UInt32, UInt32, UInt32, UInt32}}(goToGoodLine(f))
+	# faces can have any number of points
+	out = Vector{Tuple{Vararg{UInt32}}}(goToGoodLine(f))
 	for i = 1:length(out)
 		m = split(readline(f), [' ', '(', ')'],  keep=false)
-		# this is only temporary and should be removed when we will have hybrid meshes
-		m[1] == "4" || error("found a face with more than 4 points!!") 
-		# we add one because we want a 1-based data structure
-		out[i] = (parse(UInt32, m[2]) + UInt32(1), parse(UInt32, m[3]) + UInt32(1), 
-				  parse(UInt32, m[4]) + UInt32(1), parse(UInt32, m[5]) + UInt32(1))
+        # number of face points
+		N = parse(Int, m[1])
+        # checks. We currently support triangular and quadrilateral faces
+        N < 3 && error("found a face with less than 3 points!!") 
+        N > 4 && error("found a face with more than 4 points!!") 
+		# we add UInt32(1) because we want a 1-based data structure
+        out[i] = ntuple(i->parse(UInt32, m[i+1]) + UInt32(1), N)
 	end
 	out
 end
