@@ -196,7 +196,7 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
 
     # size of mesh
     local nfaces = length(faces_data)
-    local ncells = maximum(fowners)
+    local ncells = max(maximum(fowners), maximum(fneighs))
 
     # we also need to construct
     fsvecs   = Vector{Point{dtype}}(nfaces)
