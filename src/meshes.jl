@@ -168,6 +168,7 @@ function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
     print(io, "Mesh object at $(object_id(mesh)):  \n")
     print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
     print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
+    print(io, "$gap ~ $(ninternalfaces(mesh)) internal faces\n")
     print(io, "$gap ~ $(nboundaryfaces(mesh)) boundary faces\n")
     print(io, "$gap ~ $(length(keys(patches(mesh)))) patches: \n")
     for (patchname, v) in mesh.patches
