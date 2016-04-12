@@ -189,51 +189,44 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
-    # read all data. These are 1-based, and not 0-based as the OF files
+    # create vector of mesh points
     points_data = reader(casedir, "points"; dtype=dtype)
-    faces_data  = reader(casedir, "faces")
+    mesh_points = Point{dtype}[Point(el...) for el in points_data]
+    
+    # read face information
+    faces_data = reader(casedir, "faces")
+    nfaces = length(faces_data)
+    
+    # we also need to construct these two along with the faces
+    fcentres = Vector{Point{dtype}}(nfaces)
+    fsvecs   = Vector{Point{dtype}}(nfaces)
+    fareas   = Vector{dtype}(nfaces)
+
+    # now build face properties. This loop is not type stable, as ptsID
+    # varies between a tuple of 3 or 4 or more points. So all the functions
+    # below need to have dynamic dispatch at runtime, which is also slow.       
+    for faceID = 1:nfaces
+        # tuple of points ids making the faces
+        ptsID = faces_data[faceID]
+        # tuple of Points making the faces
+        pts = ntuple(i -> mesh_points[ptsID[i]],  length(ptsID))
+        # check for disaster
+        inplane(pts) || error("found non planar face with ID $i")
+        fcentres[faceID] = _centre(pts)
+        fsvecs[faceID]   = _svec(pts)
+        fareas[faceID]   = norm(_svec(pts))
+    end
+
+    # read cell owner information
     fowners     = reader(casedir, "owner")
     fneighs     = reader(casedir, "neighbour")
 
     # size of mesh
-    local nfaces = length(faces_data)
     local ncells = max(maximum(fowners), maximum(fneighs))
 
-    # we also need to construct
-    fsvecs   = Vector{Point{dtype}}(nfaces)
-    fcentres = Vector{Point{dtype}}(nfaces)
+    # will construct this as well
     ccentres = Vector{Point{dtype}}(ncells)  
     cvolumes = Vector{dtype}(ncells) 
-
-    # create vector of mesh points
-    mesh_points = Point{dtype}[Point(el...) for el in points_data]
-
-    # loop over faces and construct required face data
-    mesh_faces = Vector{PolygonalFace{dtype}}(length(faces_data))
-    for (faceID, ptsID) in enumerate(faces_data)
-        # number of points defining the face
-        N = length(ptsID)
-        #=
-          Select face points for computation of centre and svec. 
-          we use tuple because _centre and _svec are methods with 
-          multiple implementations, depending on the number of points. 
-        =#
-        pts = ntuple(i->mesh_points[ptsID[i]], N)
-        # check for disaster
-        inplane(pts) || error("found non planar face with ID $faceID")
-        # now build face        
-        f = PolygonalFace{dtype, N}(ptsID,   
-                                    _centre(pts),
-                                    _svec(pts),
-                                    fowners[faceID], 
-                                    faceID > length(fneighs) ? 
-                                             UInt32(0)      : 
-                                             fneighs[faceID])
-        mesh_faces[faceID] = f
-        # store required data
-        fcentres[faceID] = centre(f)
-        fsvecs[faceID] = svec(f)
-    end
 
     #=
        Read `owner` and `neighbour` files to obtain a dictionary data 
@@ -247,33 +240,27 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
        Int as the key type and UInt32 as the value.
     =#
     data = DefaultDict(Int, Vector{UInt32}, Vector{UInt32})
-    for (faceID, ownerCellID) in enumerate(fowners)
-        push!(data[ownerCellID], faceID)
-    end
-    for (faceID, neighCellID) in enumerate(fneighs)
-        push!(data[neighCellID], faceID)
+    for cellIDs in (fowners, fneighs)
+        for (faceID, cellID) in enumerate(cellIDs)
+            push!(data[cellID], faceID)
+        end
     end
 
-    # Now create `mesh_cells` vector. Note that we need to use indexing 
-    # of the `mesh_cells` vector instead of just push! because `data` 
-    # is a dictionary which is not ordered. 
-    mesh_cells = Vector{PolyHedralCell{dtype}}(length(keys(data)))
+    # Note that here we need to use indexing of the ccentres and cvolumes
+    # vectors instead of just push! because `data` is an unordered dictionary
     for (cellID, faceIDs) in data
-        M = length(faceIDs) # number of faces composing the cell
-        fcs = ntuple(i->mesh_faces[faceIDs[i]], M) # tuple of faces
-        cell = PolyHedralCell{dtype, M}(tuple(faceIDs...), 
-                                        _centreAndVolume(fcs)...)
-        mesh_cells[cellID] = cell
-        # store required data
-        ccentres[cellID] = centre(cell)
-        cvolumes[cellID] = volume(cell)
+        # tuples of faces areas and centres
+        areas   = ntuple(i -> fareas[faceIDs[i]],   length(faceIDs))
+        centres = ntuple(i -> fcentres[faceIDs[i]], length(faceIDs))
+        # perform computation
+        ccentres[cellID], cvolumes[cellID] = _centreAndVolume(areas, centres)
     end
 
-    # create a dict of patches
-    patches = (Symbol=>Patch)[k => Patch(k, v...) 
-                              for (k, v) in read_boundary(casedir)]
-    return Mesh{dtype}(fcentres, fsvecs, fowners, fneighs, 
-                       cvolumes, ccentres, patches)
+    # # create a dict of patches
+    # patches = (Symbol=>Patch)[k => Patch(k, v...) 
+    #                           for (k, v) in read_boundary(casedir)]
+    # return Mesh{dtype}(fcentres, fsvecs, fowners, fneighs, 
+    #                    cvolumes, ccentres, patches)
 end
 
 end
