@@ -79,3 +79,25 @@ function _centreAndVolume{T, M}(faces::NTuple{M, PolygonalFace{T}})
 	ctr /= vol
 	ctr, vol/3.0
 end
+
+function _centreAndVolume{T, S<:Point}(areas::Tuple{Vararg{T}}, 
+                                       centres::Tuple{Vararg{S}}) 
+    # estimated cell centre, based on average face centre
+    cEst = Point(zero(T), zero(T), zero(T))
+    for centre in centres
+        cEst += centre
+    end
+    cEst /= length(centres)
+
+    # now compute volume weighted average of pyramid centroids
+    vol = zero(T)
+    ctr = Point(zero(T), zero(T), zero(T))
+    for (centre, area) in zip(centres, areas)
+        pyrvol = area*distance(centre, cEst)
+        pyrctr = centre*3/4 + cEst*1/4
+        vol += pyrvol
+        ctr += pyrctr*pyrvol
+    end
+    ctr /= vol
+    ctr, vol/3.0
+end
