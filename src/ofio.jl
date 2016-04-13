@@ -3,6 +3,8 @@
 # ------------------------------------------------------------------- #
 module OFIO
 
+using HVectors
+
 import FAT.Constants: BC_EMPTY, BC_FIXEDVALUE
 
 """ Check if directory is an OpenFoam case directory """
@@ -59,26 +61,14 @@ function read_faces(casedir::AbstractString)
     # number of faces
     N = goToGoodLine(f)
 	# faces can have any number of points
-	out = Tuple{Vararg{UInt32}}[]
-	for i = 1:N
+	out = HVector{UInt32}()
+    for i = 1:N
         # parse line: this is the most intensive bit
 		m = split(readline(f), [' ', '(', ')'],  keep=false)
-        # number of face points
-		M = parse(Int, m[1])
-        # we add 0x00000001 because we want a 1-based data structure
-        if M == 3
-            push!(out, (parse(UInt32, m[2]) + 0x00000001,
-                        parse(UInt32, m[3]) + 0x00000001, 
-                        parse(UInt32, m[4]) + 0x00000001))
-        elseif M == 4
-            push!(out, (parse(UInt32, m[2]) + 0x00000001,
-                        parse(UInt32, m[3]) + 0x00000001, 
-                        parse(UInt32, m[4]) + 0x00000001, 
-                        parse(UInt32, m[5]) + 0x00000001))
-        elseif M < 3 
-            error("found a face with less than 3 points!!") 
-        elseif M > 4
-            error("found a face with more than 4 points!!") 
+        # Loop over number of face points. We add 0x00000001 
+        # because we want a 1-based data structure
+        @unlocked out for i = 1:parse(Int, m[1])
+            push!(out, parse(UInt32, m[i+1]) + 0x00000001)
         end
 	end
     close(f)
