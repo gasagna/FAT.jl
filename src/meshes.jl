@@ -256,11 +256,11 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
         ccentres[cellID], cvolumes[cellID] = _centreAndVolume(areas, centres)
     end
 
-    # # create a dict of patches
-    # patches = (Symbol=>Patch)[k => Patch(k, v...) 
-    #                           for (k, v) in read_boundary(casedir)]
-    # return Mesh{dtype}(fcentres, fsvecs, fowners, fneighs, 
-    #                    cvolumes, ccentres, patches)
+    # create a dict of patches
+    patches = (Symbol=>Patch)[k => Patch(k, v...) 
+                              for (k, v) in read_boundary(casedir)]
+    return Mesh{dtype}(fcentres, fsvecs, fowners, fneighs, 
+                       cvolumes, ccentres, patches)
 end
 
 end
