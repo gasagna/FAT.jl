@@ -18,8 +18,7 @@ include("simulations.jl")
 include("sparse.jl")
 include("galerkin.jl")
 
-using .Constants, .Meshes, .Utils, .Fields, .Simulations, .OFIO, .POD, .Sparse
-using .Galerkin
+using .Constants, .Meshes, .Utils, .Fields, .Simulations, .OFIO, .POD, .Sparse, .Galerkin
 
 
 end
