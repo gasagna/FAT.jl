@@ -398,9 +398,9 @@ function der!{D, T}(u::ScalarField{D, T},
     cvolumes_ = m.cvolumes
 
     # contributions only from non-empty boundary faces
-    for patch in values(patches(m))
+    for (patchname, patch) in patches(m)
         if !(isempty(patch))
-            for (faceID, ibnd) in patchfaces(m, patch)
+            for (faceID, ibnd) in faceiterator(m, patchname)
                 @inbounds out_[fowners_[faceID]] += (
                     getfield(fsvecs_[faceID], dir)*ub_[ibnd] )
             end
@@ -408,7 +408,7 @@ function der!{D, T}(u::ScalarField{D, T},
     end
 
     # contributions from the internal faces
-    @simd for faceID in internalfaces(m)
+    @simd for faceID in facesIDs(m)
         @inbounds  begin 
             foi = fowners_[faceID]
             fni = fneighs_[faceID]
@@ -421,7 +421,7 @@ function der!{D, T}(u::ScalarField{D, T},
 
     # divide by the cell volume now, as for Gauss formula
     @simd for i = 1:ncells(m)
-        out_[i] /= cvolumes_[i]
+        @inbounds out_[i] /= cvolumes_[i]
     end
 
     # FIXME: now we should fill the boundary field of the derivative 
