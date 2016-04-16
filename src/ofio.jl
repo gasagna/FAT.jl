@@ -42,14 +42,14 @@ function goToGoodLine(f::IOStream)
 end
 
 """ Read the `points` file in the constant/polyMesh directory """
-function read_points(casedir::AbstractString, dtype::Type)
+function read_points(casedir::AbstractString, mtype::Type)
     f = open(joinpath(casedir, "constant/polyMesh/points"))
-    out = Vector{NTuple{3, dtype}}(goToGoodLine(f))
+    out = Vector{NTuple{3, mtype}}(goToGoodLine(f))
     for i = 1:length(out)
         m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
-        @inbounds out[i] = (parse(dtype, m[1]), 
-                            parse(dtype, m[2]), 
-                            parse(dtype, m[3]))
+        @inbounds out[i] = (parse(mtype, m[1]), 
+                            parse(mtype, m[2]), 
+                            parse(mtype, m[3]))
     end
     out
 end
@@ -81,8 +81,8 @@ function read_on(casedir::AbstractString, filename::AbstractString)
     UInt32[parse(UInt32, readline(f)) + one(UInt32) for i = 1:goToGoodLine(f)]
 end
 
-function reader(casedir::AbstractString, filename::AbstractString; dtype::Type=Float64)
-    if     filename == "points"    return read_points(casedir, dtype)
+function reader(casedir::AbstractString, filename::AbstractString; mtype::Type=Float64)
+    if     filename == "points"    return read_points(casedir, mtype)
     elseif filename == "faces"     return read_faces(casedir)
     elseif filename == "owner"     return read_on(casedir, "owner")
     elseif filename == "neighbour" return read_on(casedir, "neighbour")
@@ -146,10 +146,10 @@ function returnmatch(f::IOStream, regex::Regex)
 end
 
 """ Read scalar internal field """
-function read_internal_scalar_field(f::IOStream, dtype::Type=Float64)
+function read_internal_scalar_field(f::IOStream, mtype::Type=Float64)
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
-    dtype[parse(dtype, readline(f)) for i in 1:nlines]
+    mtype[parse(mtype, readline(f)) for i in 1:nlines]
 end
 
 """ Read vector internal field.
@@ -159,14 +159,14 @@ end
     The argument `dimensions` specifies how many components will be read.
 
 """
-function read_internal_vector_field(f::IOStream, dimensions::Integer, dtype::Type=Float64)
+function read_internal_vector_field(f::IOStream, dimensions::Integer, mtype::Type=Float64)
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
-    out = Matrix{dtype}(nlines, dimensions)
+    out = Matrix{mtype}(nlines, dimensions)
     for i = 1:nlines
         m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
         for j = 1:dimensions
-            out[i, j] = parse(dtype, m[j])
+            out[i, j] = parse(mtype, m[j])
         end
     end
     out
@@ -182,14 +182,14 @@ end
     We only support clearly formatted files, so do not mess 
     up with the output files.
 """
-function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimensions::Integer, dtype::Type=Float64)
+function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimensions::Integer, mtype::Type=Float64)
     # Read the boundary file. This happens every time!
     patches = read_boundary(casedir)
     # value[2] is the number of faces, so we sum them
     nboundaryfaces = sum([Int(value[2]) for (key, value) in patches])
     # number of internal faces. value[3] is the starting face, so we get the min
     nInternalFaces = minimum([Int(value[3]) for (key, value) in patches]) - 1
-    output = zeros(dtype, nboundaryfaces, dimensions)
+    output = zeros(mtype, nboundaryfaces, dimensions)
     gotomatch(f, r"boundaryField")
     while !eof(f)
         line = readline(f)
@@ -207,7 +207,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimens
                 # go to next line and parse the () part. Parse all components
                 g = match(r"\(([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\)", readline(f))
                 # set all entries to the same value 
-                val =  [parse(dtype, g[i]) for i in 1:dimensions]
+                val =  [parse(mtype, g[i]) for i in 1:dimensions]
                 for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
                     # we need to remove the number of internal faces from i
                     i_ = i - nInternalFaces
@@ -221,7 +221,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimens
                     # we need to remove the number of internal faces from i
                     i_ = i - nInternalFaces
                     for j = 1:dimensions
-                        output[i_, j] = parse(dtype, m[j])
+                        output[i_, j] = parse(mtype, m[j])
                     end
                 end
             else
