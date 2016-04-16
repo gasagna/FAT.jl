@@ -25,10 +25,10 @@ d = Point(0.0, 1.0, 0.0)
 # test quadface and generic interface
 pts = (a, b, c, d)
 f = PolygonalFace{Float64, 4}(ntuple(i->UInt32(i), 4), 
-			 FAT.Meshes._centre(pts), 
-			 FAT.Meshes._svec(pts), 
-			 0x00000001,
-			 0x00000002)
+             FAT.Meshes._centre(pts), 
+             FAT.Meshes._svec(pts), 
+             0x00000001,
+             0x00000002)
 
 # check area and surface vector
 @test area(f) == 1
@@ -44,8 +44,8 @@ f = PolygonalFace{Float64, 4}(ntuple(i->UInt32(i), 4),
 # Apply some rotation to the points and check area does not vary
 # see examples in https://en.wikipedia.org/wiki/Rotation_matrix
 Q = [1    0          0;
- 	 0    sqrt(3)/2  1/2;
- 	 0    -1/2       sqrt(3)/2]
+     0    sqrt(3)/2  1/2;
+     0    -1/2       sqrt(3)/2]
 
 ar = Point(Q*asarray(a)...)
 br = Point(Q*asarray(b)...)
@@ -55,10 +55,10 @@ dr = Point(Q*asarray(d)...)
 # test quadface and generic interface
 ptsr = (ar, br, cr, dr)
 fr = PolygonalFace{Float64, 4}(ntuple(i->UInt32(i), 4), 
-			  FAT.Meshes._centre(ptsr), 
-			  FAT.Meshes._svec(ptsr), 
-			  0x00000001,
-			  0x00000002)
+              FAT.Meshes._centre(ptsr), 
+              FAT.Meshes._svec(ptsr), 
+              0x00000001,
+              0x00000002)
 
 
 @test area(fr) ≈ 1
@@ -69,10 +69,10 @@ fr = PolygonalFace{Float64, 4}(ntuple(i->UInt32(i), 4),
 s = Point(-1, 14, -23)
 ptss = (2*ar-s, 2*br-s, 2*cr-s, 2*dr-s)
 fs = PolygonalFace{Float64, 4}(ntuple(i->UInt32(i), 4), 
-			  FAT.Meshes._centre(ptss), 
-			  FAT.Meshes._svec(ptss), 
-			  0x00000001,
-			  0x00000002)
+              FAT.Meshes._centre(ptss), 
+              FAT.Meshes._svec(ptss), 
+              0x00000001,
+              0x00000002)
 
 
 # check area and surface vector

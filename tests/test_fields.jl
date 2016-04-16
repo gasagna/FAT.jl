@@ -9,49 +9,49 @@ sim = SimulationData("ldc_test")
 
 # test constructors
 for D in [2, 3]
-	zsf = ScalarField(mesh(sim), D, Int32)
-	@test ndims(zsf) == D
-	@test eltype(zsf) == Int32
-	@test length(zsf.internalField) == ncells(mesh(sim))
-	@test length(zsf.boundaryField) == nboundaryfaces(mesh(sim))
-	@test mesh(zsf) == mesh(sim)
+    zsf = ScalarField(mesh(sim), D, Int32)
+    @test ndims(zsf) == D
+    @test eltype(zsf) == Int32
+    @test length(zsf.internalField) == ncells(mesh(sim))
+    @test length(zsf.boundaryField) == nboundaryfaces(mesh(sim))
+    @test mesh(zsf) == mesh(sim)
 end 
 @test_throws ErrorException ScalarField(mesh(sim), 4)
 @test_throws ErrorException ScalarField(mesh(sim), 1)
 
 for D in [2, 3]
-	zvf = VectorField(mesh(sim), D)
-	@test ndims(zvf) == D
-	@test eltype(zvf) == Float64
-	@test mesh(zvf) == mesh(sim)
-	@test length(zvf.scalars) == ndims(zvf)
-	for ui in zvf.scalars
-		@test ndims(ui) == D
-		@test eltype(ui) == Float64
-		@test length(ui.internalField) == ncells(mesh(sim))
-		@test length(ui.boundaryField) == nboundaryfaces(mesh(sim))
-	end
+    zvf = VectorField(mesh(sim), D)
+    @test ndims(zvf) == D
+    @test eltype(zvf) == Float64
+    @test mesh(zvf) == mesh(sim)
+    @test length(zvf.scalars) == ndims(zvf)
+    for ui in zvf.scalars
+        @test ndims(ui) == D
+        @test eltype(ui) == Float64
+        @test length(ui.internalField) == ncells(mesh(sim))
+        @test length(ui.boundaryField) == nboundaryfaces(mesh(sim))
+    end
 end
 @test_throws ErrorException VectorField(mesh(sim), 4)
 @test_throws ErrorException VectorField(mesh(sim), 1)
 
 for D in [2, 3]
-	ztf = TensorField(mesh(sim), D, Float16)
-	@test ndims(ztf) == D
-	@test eltype(ztf) == Float16
-	@test mesh(ztf) == mesh(sim)
-	@test length(ztf.vectors) == ndims(ztf)
-	for u in ztf.vectors
-		@test ndims(u) == D
-		@test eltype(u) == Float16
-		@test length(u.scalars) == D
-		for ui in u.scalars
-			@test ndims(ui) == D
-			@test eltype(ui) == Float16
-			@test length(ui.internalField) == ncells(mesh(sim))
-			@test length(ui.boundaryField) == nboundaryfaces(mesh(sim))
-		end
-	end
+    ztf = TensorField(mesh(sim), D, Float16)
+    @test ndims(ztf) == D
+    @test eltype(ztf) == Float16
+    @test mesh(ztf) == mesh(sim)
+    @test length(ztf.vectors) == ndims(ztf)
+    for u in ztf.vectors
+        @test ndims(u) == D
+        @test eltype(u) == Float16
+        @test length(u.scalars) == D
+        for ui in u.scalars
+            @test ndims(ui) == D
+            @test eltype(ui) == Float16
+            @test length(ui.internalField) == ncells(mesh(sim))
+            @test length(ui.boundaryField) == nboundaryfaces(mesh(sim))
+        end
+    end
 end
 @test_throws ErrorException VectorField(mesh(sim), 4)
 @test_throws ErrorException VectorField(mesh(sim), 1)
@@ -59,32 +59,32 @@ end
 # test indexing syntax for vector and tensor fields
 u = sim[10.0, :U]
 for (i, ids) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
-	for id in ids
-		@test u[id] == u.scalars[i]
-	end
+    for id in ids
+        @test u[id] == u.scalars[i]
+    end
 end
 
 u = grad(sim[10.0, :U])
 for (i, ids) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
-	for (j, jds) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
-		for id in ids
-			for jd in jds
-				@test u[id, jd] == u.vectors[i].scalars[j]
-			end
-		end
-	end
+    for (j, jds) in zip([1, 2], ([1, :x, :u, :U], [2, :y, :v, :V]))
+        for id in ids
+            for jd in jds
+                @test u[id, jd] == u.vectors[i].scalars[j]
+            end
+        end
+    end
 end
 
 # test similar
 for typ in [ScalarField, VectorField, TensorField]
-	@eval begin
-		a = $(typ)(mesh(sim), 2)
-		b = similar(a)
-		@test mesh(a) == mesh(b)
-		@test mesh(a) === mesh(b)
-		@test eltype(a) === eltype(b)
-		@test ndims(a) === ndims(b)
-	end
+    @eval begin
+        a = $(typ)(mesh(sim), 2)
+        b = similar(a)
+        @test mesh(a) == mesh(b)
+        @test mesh(a) === mesh(b)
+        @test eltype(a) === eltype(b)
+        @test ndims(a) === ndims(b)
+    end
 end
 
 # test zero
@@ -96,15 +96,15 @@ b = zero(a)
 a = VectorField(mesh(sim), 3)
 b = zero(a)
 for d = 1:3
-	@test sumabs2(b.scalars[d].internalField) == 0
-	@test sumabs2(b.scalars[d].boundaryField) == 0
+    @test sumabs2(b.scalars[d].internalField) == 0
+    @test sumabs2(b.scalars[d].boundaryField) == 0
 end
 
 a = TensorField(mesh(sim), 3)
 b = zero(a)
 for di = 1:3, dj = 1:3
-	@test sumabs2(b.vectors[dj].scalars[di].internalField) == 0
-	@test sumabs2(b.vectors[dj].scalars[di].boundaryField) == 0
+    @test sumabs2(b.vectors[dj].scalars[di].internalField) == 0
+    @test sumabs2(b.vectors[dj].scalars[di].boundaryField) == 0
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,30 +195,30 @@ out = FAT.Fields.div!(u, 3.0, similar(u))
 u = sim[10.0, :U]
 out = u - u
 for i = 1:2
-	@test sumabs2(out.scalars[i].internalField) == 0
-	@test sumabs2(out.scalars[i].boundaryField) == 0
+    @test sumabs2(out.scalars[i].internalField) == 0
+    @test sumabs2(out.scalars[i].boundaryField) == 0
 end
 
 u = sim[10.0, :U]
 out = FAT.Fields.sub!(u, u, similar(u))
 for i = 1:2
-	@test sumabs2(out.scalars[i].internalField) == 0
-	@test sumabs2(out.scalars[i].boundaryField) == 0
+    @test sumabs2(out.scalars[i].internalField) == 0
+    @test sumabs2(out.scalars[i].boundaryField) == 0
 end
 
 # addition 
 u = sim[10.0, :U]
 out = u + u
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
 end
 
 u = sim[10.0, :U]
 out = FAT.Fields.add!(u, u, similar(u))
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 2*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 2*u.scalars[i].boundaryField)
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -228,44 +228,44 @@ end
 u = sim[10.0, :U]
 out = FAT.Fields.mul!(1.5, u, similar(u))
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
 end
 
 u = sim[10.0, :U]
 out = FAT.Fields.mul!(u, 1.5, similar(u))
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
 end
 
 u = sim[10.0, :U]
 out = 1.5*u
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
 end
 
 u = sim[10.0, :U]
 out = u*1.5
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 1.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 1.5*u.scalars[i].boundaryField)
 end
 
 # division
 u = sim[10.0, :U]
 out = FAT.Fields.div!(u, 2.0, similar(u))
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
 end
 
 u = sim[10.0, :U]
 out = u/2.0
 for i = 1:2
-	@test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
-	@test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
+    @test all(out.scalars[i].internalField .== 0.5*u.scalars[i].internalField)
+    @test all(out.scalars[i].boundaryField .== 0.5*u.scalars[i].boundaryField)
 end
 
 # ~~~~~~~
@@ -301,7 +301,7 @@ v = sim[9.0, :U]
 # not test the case for which the fields vary in the
 # domain, but only the underlying "algorithm".
 for d in 1:2
-	u.scalars[d].internalField[:] = d
+    u.scalars[d].internalField[:] = d
 end
 @test inner(u, u) ≈ 1^2 + 2^2
 @test norm(u) ≈ sqrt(5)
@@ -359,8 +359,8 @@ b = ω.internalField
 # test outputs of gradient and curl
 u = sim[1.0, :U]
 for el in [mesh, ndims, eltype]
-	@test el(grad(u)) == el(u)
-	@test el(curl(u)) == el(u)
+    @test el(grad(u)) == el(u)
+    @test el(curl(u)) == el(u)
 end
 
 # ~~~~~~~~~~~
@@ -384,6 +384,6 @@ us = collect(fields(sim, Val{:U}))
 a = mean(us)
 b = sum(us)/length(us)
 for i = 1:2
-	@test a[i].internalField ≈ b[i].internalField
-	@test a[i].boundaryField ≈ b[i].boundaryField
+    @test a[i].internalField ≈ b[i].internalField
+    @test a[i].boundaryField ≈ b[i].boundaryField
 end

@@ -15,12 +15,12 @@ m = Mesh(casedir)
 # # for each cell the sum of the outwards face vectors is zero
 # fcs = faces(m)
 # for (cellID, cell) in enumerate(cells(m))
-# 	S = Point3D(0.0, 0.0, 0.0)
-# 	for faceID in facesIDs(cell)
-# 		sign = isoutwards(cellID, fcs[faceID]) ? 1 : -1
-# 		S += svec(fcs[faceID])*sign
-# 	end
-# 	@test norm(S) ≈ 0.0
+#   S = Point3D(0.0, 0.0, 0.0)
+#   for faceID in facesIDs(cell)
+#       sign = isoutwards(cellID, fcs[faceID]) ? 1 : -1
+#       S += svec(fcs[faceID])*sign
+#   end
+#   @test norm(S) ≈ 0.0
 # end
 
 # @test npoints(m) == 882
@@ -39,66 +39,66 @@ m = Mesh(casedir)
 
 # # test enumerate over FaceIterator
 # for (i, face) in enumerate(internalfaces(m))
-# 	@test isInternal(faces(m)[i]) == true
-# 	@test isOnBoundary(faces(m)[i]) == false
-# 	@test face == faces(m)[i]
+#   @test isInternal(faces(m)[i]) == true
+#   @test isOnBoundary(faces(m)[i]) == false
+#   @test face == faces(m)[i]
 # end
 
 # for (i, face) in enumerate(boundaryfaces(m))
-# 	@test isInternal(faces(m)[i]) == false
-# 	@test isOnBoundary(faces(m)[i]) == true
-# 	@test face == faces(m)[i]
+#   @test isInternal(faces(m)[i]) == false
+#   @test isOnBoundary(faces(m)[i]) == true
+#   @test face == faces(m)[i]
 # end
 
 # for patchname in [:top, :left, :right, :bottom, :back0, :front1]
-# 	for (i, face) in enumerate(faces(m, patchname))
-# 		@test isOnBoundary(face) == true
-# 		@test isInternal(face) == false
-# 		@test face == faces(m)[i]
-# 		p = patch(m, patchname)
-# 		firstfaceID(p) <= i <= lastfaceID(p)
-# 	end
+#   for (i, face) in enumerate(faces(m, patchname))
+#       @test isOnBoundary(face) == true
+#       @test isInternal(face) == false
+#       @test face == faces(m)[i]
+#       p = patch(m, patchname)
+#       firstfaceID(p) <= i <= lastfaceID(p)
+#   end
 # end
 
 # for (i, face) in enumerate(faces(m))
-# 	# the first faces are internal, then on the boundary.
-# 	# just look at the lower startface in the patches.
-# 	if i <= ninternalfaces(m)
-# 		@test isInternal(face) == true
-# 		@test isOnBoundary(face) == false
-# 	else
-# 		@test isInternal(face) == false
-# 		@test isOnBoundary(face) == true
-# 	end
+#   # the first faces are internal, then on the boundary.
+#   # just look at the lower startface in the patches.
+#   if i <= ninternalfaces(m)
+#       @test isInternal(face) == true
+#       @test isOnBoundary(face) == false
+#   else
+#       @test isInternal(face) == false
+#       @test isOnBoundary(face) == true
+#   end
 # end
 
 # for face in internalbfaces(m)
-# 	# an internal face points from the owner to the neighbour
-# 	# and the ownerID < neighbourID. Unless neighbour is on the boundary.
-# 	# In that case neighbourID = 0
-# 	@test ownerID(face) < neighbourID(face)
+#   # an internal face points from the owner to the neighbour
+#   # and the ownerID < neighbourID. Unless neighbour is on the boundary.
+#   # In that case neighbourID = 0
+#   @test ownerID(face) < neighbourID(face)
 
-# 	# a internal face always points towards to cell with larger ID 
-# 	@test points_to(face) == neighbourID(face)
+#   # a internal face always points towards to cell with larger ID 
+#   @test points_to(face) == neighbourID(face)
 # end
 
 # # for all cells, if a face is on the boundary, it points outwards
 # for (i, cell) in enumerate(cells(m))
-# 	for faceID in facesIDs(cell)
-# 		face = faces(m)[faceID]
-# 		if isOnBoundary(face)
-# 			@test isoutwards(i, face) == true
-# 		end
-# 	end
+#   for faceID in facesIDs(cell)
+#       face = faces(m)[faceID]
+#       if isOnBoundary(face)
+#           @test isoutwards(i, face) == true
+#       end
+#   end
 # end
 
 # # test faces on the boundary patches are correctly identified
 # for (ptchname, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
-# 									[:y, :y, :x, :x, :z, :z], 
-# 									[1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
-# 	for face in faces(m, ptchname)
-# 		@test getfield(centre(face), coord) == value
-# 	end
+#                                   [:y, :y, :x, :x, :z, :z], 
+#                                   [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
+#   for face in faces(m, ptchname)
+#       @test getfield(centre(face), coord) == value
+#   end
 # end
 
 

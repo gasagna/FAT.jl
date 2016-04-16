@@ -24,9 +24,9 @@ export Point,
 
 """
 immutable Point{T<:Real}
-	x::T
-	y::T
-	z::T
+    x::T
+    y::T
+    z::T
 end
 Point(x::Real, y::Real, z::Real) = Point(promote(x, y, z)...)
 show(io::IO, p::Point) = print(io, "($(p.x), $(p.y), $(p.z))")

@@ -35,15 +35,15 @@ neighbour_data = FAT.OFIO.reader(casedir, "neighbour")
 # read boundary file
 out = FAT.OFIO.read_boundary(casedir)
 for t in [:top, :bottom, :left, :right, :front1, :back0]
-	@test t in keys(out)
+    @test t in keys(out)
 end
 # these are non-empty patches
 for t in [:top, :bottom, :left, :right]
-	@test out[t][1] == false
+    @test out[t][1] == false
 end
 # these are empty patches
 for t in [:front1, :back0]
-	@test out[t][1] == true
+    @test out[t][1] == true
 end
 
 
@@ -80,6 +80,6 @@ end
 # @test out[:top][2][:, 2] == zeros(20)
 
 # for name in [:left, :right, :bottom]
-# 	@test out[name][1] == FAT.Constants.BC_FIXEDVALUE
-# 	@test out[name][2] == zeros(20, 2)
+#   @test out[name][1] == FAT.Constants.BC_FIXEDVALUE
+#   @test out[name][2] == zeros(20, 2)
 # end

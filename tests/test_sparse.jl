@@ -9,8 +9,8 @@ include("sparse.jl")
 @test nmonomials(2) == 6
 
 for i = 5:5:200
-	s = @sprintf "%d" i 
-	println(lpad(s, 4), " : ", nmonomials(i))
+    s = @sprintf "%d" i 
+    println(lpad(s, 4), " : ", nmonomials(i))
 end
 
 
@@ -49,8 +49,8 @@ r = regrvec!(a, r)
 A = repmat(a, 1, 3)
 R = regrmat(A)
 @test R == [1 1 1;
-			1 1 1;
- 			2 2 2;
- 			1 1 1; 
- 			2 2 2;
- 			4 4 4]
+            1 1 1;
+            2 2 2;
+            1 1 1; 
+            2 2 2;
+            4 4 4]

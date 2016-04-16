@@ -5,17 +5,17 @@
 """ Compute centroid and volume of any polyhedral cell based on the 
     areas and centres of its faces.
 
-	Notes
-	-----
-	No verification is made that faces are congruent, i.e. they
-	are defined by the same set of points. We trust OpenFOAM here.
+    Notes
+    -----
+    No verification is made that faces are congruent, i.e. they
+    are defined by the same set of points. We trust OpenFOAM here.
 
-	References
-	----------
-	src/OpenFOAM/meshes/primitiveMesh/primitiveMeshCellCentresAndVols.C
-	see page 159 in: The Finite Volume Method in Computational 
-					 Fluid Dynamics: An Advanced Introduction with 
-					 OpenFOAM® and Matlab
+    References
+    ----------
+    src/OpenFOAM/meshes/primitiveMesh/primitiveMeshCellCentresAndVols.C
+    see page 159 in: The Finite Volume Method in Computational 
+                     Fluid Dynamics: An Advanced Introduction with 
+                     OpenFOAM® and Matlab
 """
 function _centreAndVolume{T, S<:Point}(areas::Tuple{Vararg{T}}, 
                                        centres::Tuple{Vararg{S}}) 
