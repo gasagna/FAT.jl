@@ -3,7 +3,8 @@
 # ------------------------------------------------------------------- #
 import Base: isempty
 
-# A patch is just an index of the faces that form that patch.
+# A patch is just an index of the faces that form that patch, 
+# plus its name and whether it is an empty patch or not.
 # The OpenFoam notation of the `boundary` files is used here.
 immutable Patch
     name::Symbol
@@ -29,3 +30,6 @@ patchname(p::Patch) = p.name
 
 " ID of last face - This is 1-based "
 @inline lastfaceID(p::Patch) = Int(p.startface + p.nfaces - 1) 
+
+" Range of faces belonging to the path"
+@inline facesIDs(p::Patch) = firstfaceID(p):lastfaceID(p)

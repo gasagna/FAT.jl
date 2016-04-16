@@ -2,141 +2,147 @@ using Base.Test
 using FAT.Meshes
 
 casedir = "./ldc_test"
-
 m = Mesh(casedir)
 
-# # we have a cube, with unitary volume and surface area equal to 6
-# @test_approx_eq_eps sum([volume(cell) for cell in cells(m)])  1 1e-14
-# @test_approx_eq_eps sum([area(face) for face in filter(isOnBoundary, faces(m))]) 6 1e-10
+# ~~~~~~~~~~~~~~~~~~~
+# TEST CELL FUNCTIONS
+# ~~~~~~~~~~~~~~~~~~~
+@test ncells(m) == 400
 
-# # sum of all area surface vectors over the boundary patches is zero
-# @test_approx_eq_eps norm(sum([svec(face) for face in filter(isOnBoundary, faces(m))])) 0 1e-10
+# we have an unitary cube
+@test abs(sum(m.cvolumes) - 1) < 1e-14
 
-# # for each cell the sum of the outwards face vectors is zero
+# all cells should have equal volume. We round here because of finite 
+# precision arithmetic when loading the data files and in the computations
+@test all(round(m.cvolumes, 6) .== 1.0/400)
+
+# cell centres is not tested as only used for plotting
+
+# for each cell the sum of the outwards face vectors is zero
 # fcs = faces(m)
-# for (cellID, cell) in enumerate(cells(m))
-#   S = Point3D(0.0, 0.0, 0.0)
-#   for faceID in facesIDs(cell)
+# for cellID in 1:ncells(m)
+    # s = Point(0.0, 0.0, 0.0)
+    # for faceID in facesIDs(cell)
 #       sign = isoutwards(cellID, fcs[faceID]) ? 1 : -1
 #       S += svec(fcs[faceID])*sign
 #   end
 #   @test norm(S) ≈ 0.0
 # end
 
-# @test npoints(m) == 882
-# @test nfaces(m) == 1640
-# @test ncells(m) == 400
-# @test npatches(m) == 6
 
-# @test nboundaryfaces(m) == 880
-# @test ninternalfaces(m) == nfaces(m) - nboundaryfaces(m)
-# @test ninternalfaces(m) == 760
+# ~~~~~~~~~~~~~~~~~~~
+# TEST FACE FUNCTIONS
+# ~~~~~~~~~~~~~~~~~~~
+@test nfaces(m) == 1640
+@test nboundaryfaces(m) == 880
+@test ninternalfaces(m) == nfaces(m) - nboundaryfaces(m)
+@test ninternalfaces(m) == 760
 
-# @test length(internalfaces(m)) == ninternalfaces(m)
-# @test length(collect(internalfaces(m))) == ninternalfaces(m)
-# @test length(boundaryfaces(m)) == nboundaryfaces(m)
-# @test length(collect(boundaryfaces(m))) == nboundaryfaces(m)
+# sum of all area surface vectors over the boundary patches is zero,
+# while total area is six
+S = Point(0.0, 0.0, 0.0)
+A = 0.0
+for (patchname, patch) in patches(m) 
+    S += sum(m.fsvecs[facesIDs(patch)])
+    A += sum(map(norm, m.fsvecs[facesIDs(patch)]))
+end
+@test S == Point(0.0, 0.0, 0.0)
+@test A ≈ 6
 
-# # test enumerate over FaceIterator
-# for (i, face) in enumerate(internalfaces(m))
-#   @test isInternal(faces(m)[i]) == true
-#   @test isOnBoundary(faces(m)[i]) == false
-#   @test face == faces(m)[i]
-# end
+# test faces on the boundary patches are correctly 
+for (ptchname, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
+                                    [:y, :y, :x, :x, :z, :z], 
+                                    [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
+      for faceID in facesIDs(m, ptchname)
+          @test getfield(m.fcentres[faceID], coord) == value
+      end
+end
 
-# for (i, face) in enumerate(boundaryfaces(m))
-#   @test isInternal(faces(m)[i]) == false
-#   @test isOnBoundary(faces(m)[i]) == true
-#   @test face == faces(m)[i]
-# end
+@test length(facesIDs(m, :internal)) == ninternalfaces(m)
+@test length(facesIDs(m, :boundary)) == nboundaryfaces(m)
+@test ninternalfaces(m) + nboundaryfaces(m) == nfaces(m)
 
-# for patchname in [:top, :left, :right, :bottom, :back0, :front1]
-#   for (i, face) in enumerate(faces(m, patchname))
-#       @test isOnBoundary(face) == true
-#       @test isInternal(face) == false
-#       @test face == faces(m)[i]
-#       p = patch(m, patchname)
-#       firstfaceID(p) <= i <= lastfaceID(p)
-#   end
-# end
+# ~~~~~~~~~~~~~~~~~~~~
+# TEST PATCH FUNCTIONS
+# ~~~~~~~~~~~~~~~~~~~~
+@test npatches(m) == 6
+@test sort(collect(keys(patches(m)))) == sort([:top, :left, :right, 
+                                               :bottom, :back0, :front1])
+@test patch(m, :top)    == Patch(:top,    false,  20,  761)
+@test patch(m, :left)   == Patch(:left,   false,  20,  781)
+@test patch(m, :right)  == Patch(:right,  false,  20,  801)
+@test patch(m, :bottom) == Patch(:bottom, false,  20,  821)
+@test patch(m, :back0)  == Patch(:back0,  true,  400,  841)
+@test patch(m, :front1) == Patch(:front1, true,  400, 1241)
 
-# for (i, face) in enumerate(faces(m))
-#   # the first faces are internal, then on the boundary.
-#   # just look at the lower startface in the patches.
-#   if i <= ninternalfaces(m)
-#       @test isInternal(face) == true
-#       @test isOnBoundary(face) == false
-#   else
-#       @test isInternal(face) == false
-#       @test isOnBoundary(face) == true
-#   end
-# end
+@test isempty(patch(m, :top))    == false
+@test isempty(patch(m, :left))   == false
+@test isempty(patch(m, :right))  == false
+@test isempty(patch(m, :bottom)) == false
+@test isempty(patch(m, :back0))  == true
+@test isempty(patch(m, :front1)) == true
 
-# for face in internalbfaces(m)
-#   # an internal face points from the owner to the neighbour
-#   # and the ownerID < neighbourID. Unless neighbour is on the boundary.
-#   # In that case neighbourID = 0
-#   @test ownerID(face) < neighbourID(face)
+@test patchname(patch(m, :top))    == :top
+@test patchname(patch(m, :left))   == :left
+@test patchname(patch(m, :right))  == :right
+@test patchname(patch(m, :bottom)) == :bottom
+@test patchname(patch(m, :back0))  == :back0
+@test patchname(patch(m, :front1)) == :front1
 
-#   # a internal face always points towards to cell with larger ID 
-#   @test points_to(face) == neighbourID(face)
-# end
+@test nfaces(patch(m, :top))    == 20
+@test nfaces(patch(m, :left))   == 20
+@test nfaces(patch(m, :right))  == 20
+@test nfaces(patch(m, :bottom)) == 20
+@test nfaces(patch(m, :back0))  == 400
+@test nfaces(patch(m, :front1)) == 400
 
-# # for all cells, if a face is on the boundary, it points outwards
-# for (i, cell) in enumerate(cells(m))
-#   for faceID in facesIDs(cell)
-#       face = faces(m)[faceID]
-#       if isOnBoundary(face)
-#           @test isoutwards(i, face) == true
-#       end
-#   end
-# end
+@test firstfaceID(patch(m, :top))    ==  761
+@test firstfaceID(patch(m, :left))   ==  781
+@test firstfaceID(patch(m, :right))  ==  801
+@test firstfaceID(patch(m, :bottom)) ==  821
+@test firstfaceID(patch(m, :back0))  ==  841
+@test firstfaceID(patch(m, :front1)) == 1241
 
-# # test faces on the boundary patches are correctly identified
-# for (ptchname, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
-#                                   [:y, :y, :x, :x, :z, :z], 
-#                                   [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
-#   for face in faces(m, ptchname)
-#       @test getfield(centre(face), coord) == value
-#   end
-# end
+@test lastfaceID(patch(m, :top))    ==  780
+@test lastfaceID(patch(m, :left))   ==  800
+@test lastfaceID(patch(m, :right))  ==  820
+@test lastfaceID(patch(m, :bottom)) ==  840
+@test lastfaceID(patch(m, :back0))  == 1240
+@test lastfaceID(patch(m, :front1)) == 1640
 
+@test facesIDs(patch(m, :top))    ==  761:780
+@test facesIDs(patch(m, :left))   ==  781:800
+@test facesIDs(patch(m, :right))  ==  801:820
+@test facesIDs(patch(m, :bottom)) ==  821:840
+@test facesIDs(patch(m, :back0))  ==  841:1240
+@test facesIDs(patch(m, :front1)) == 1241:1640
 
+# ~~~~~~~~~~~~~~~~~~
+# TEST FACE ITERATOR 
+# ~~~~~~~~~~~~~~~~~~
 
-# # test patches
-# @test patch(m, :top)    == Patch(:top,     20,  761)
-# @test patch(m, :left)   == Patch(:left,    20,  781)
-# @test patch(m, :right)  == Patch(:right,   20,  801)
-# @test patch(m, :bottom) == Patch(:bottom,  20,  821)
-# @test patch(m, :back0)  == Patch(:back0,  400,  841)
-# @test patch(m, :front1) == Patch(:front1, 400, 1241)
+# test facesIDs
+@test facesIDs(m, :internal) ==    1:760
+@test facesIDs(m, :boundary) ==  761:1640
+@test facesIDs(m, :top)      ==  761:780
+@test facesIDs(m, :left)     ==  781:800
+@test facesIDs(m, :right)    ==  801:820
+@test facesIDs(m, :bottom)   ==  821:840
+@test facesIDs(m, :back0)    ==  841:1240
+@test facesIDs(m, :front1)   == 1241:1640
 
-# @test nfaces(patch(m, :top))    == 20
-# @test nfaces(patch(m, :left))   == 20
-# @test nfaces(patch(m, :right))  == 20
-# @test nfaces(patch(m, :bottom)) == 20
-# @test nfaces(patch(m, :back0))  == 400
-# @test nfaces(patch(m, :front1)) == 400
+# test faceiterator
+@test faceiterator(m, :internal) == zip(   1:760  ,    1:760         )
+@test faceiterator(m, :boundary) == zip( 761:1640 , ( 761:1640) - 760)
+@test faceiterator(m, :top)      == zip( 761:780  , ( 761:780 ) - 760)
+@test faceiterator(m, :left)     == zip( 781:800  , ( 781:800 ) - 760)
+@test faceiterator(m, :right)    == zip( 801:820  , ( 801:820 ) - 760)
+@test faceiterator(m, :bottom)   == zip( 821:840  , ( 821:840 ) - 760)
+@test faceiterator(m, :back0)    == zip( 841:1240 , ( 841:1240) - 760)
+@test faceiterator(m, :front1)   == zip(1241:1640 , (1241:1640) - 760)
 
-# @test patchname(patch(m, :top))    == :top
-# @test patchname(patch(m, :left))   == :left
-# @test patchname(patch(m, :right))  == :right
-# @test patchname(patch(m, :bottom)) == :bottom
-# @test patchname(patch(m, :back0))  == :back0
-# @test patchname(patch(m, :front1)) == :front1
-
-# @test firstfaceID(patch(m, :top))    ==  761
-# @test firstfaceID(patch(m, :left))   ==  781
-# @test firstfaceID(patch(m, :right))  ==  801
-# @test firstfaceID(patch(m, :bottom)) ==  821
-# @test firstfaceID(patch(m, :back0))  ==  841
-# @test firstfaceID(patch(m, :front1)) == 1241
-
-# @test lastfaceID(patch(m, :top))    ==  780
-# @test lastfaceID(patch(m, :left))   ==  800
-# @test lastfaceID(patch(m, :right))  ==  820
-# @test lastfaceID(patch(m, :bottom)) ==  840
-# @test lastfaceID(patch(m, :back0))  == 1240
-# @test lastfaceID(patch(m, :front1)) == 1640
-
-
+for faceID in facesIDs(m, :internal)
+  # an internal face points from the owner to the neighbour and so 
+  # ownerID < neighbourID. Only internal faces have a neighbour. 
+  @test m.fowners[faceID] < m.fneighs[faceID]
+end

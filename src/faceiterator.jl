@@ -22,24 +22,17 @@
     An example of usage of this is in the function `der!` in src/field.jl.
 """ 
 function faceiterator(m::Mesh, region::Symbol)
-    # Define the faceIDs range, which points to vectors such as 
-    # fowners, fsvecs, ...
-    if haskey(m.patches, region)
-        patch = m.patches[region]
-        faceIDs = firstfaceID(patch):lastfaceID(patch)
-    elseif region == :internal 
-        faceIDs = 1:ninternalfaces(m) 
-    elseif region == :boundary 
-        faceIDs = (ninternalfaces(m)+1):nfaces(m)
-    else
-        error("`region` not understood")
-    end
-    # Define the fieldIDs, which is used to point to the boundaryField
-    # vector, used to contain the solution on the domain boundary in the
-    # ScalarField object in field.jl. 
     # If we are not on the :internal region, we need to subtract
     # the number of internal faces, as the boundary faces come after 
     # the internal faces in vectors such as fsvecs. 
-    fieldIDs = region == :internal ? facesIDs : facesIDs - ninternalfaces(m)
-    return zip(faceIDs, fieldIDs)
+    a = facesIDs(m, region)
+    b = region == :internal ? a : a - ninternalfaces(m)
+    zip(a, b)
+end
+
+function facesIDs(m::Mesh, region::Symbol)
+    haskey(m.patches, region) && return facesIDs(patch(m, region))
+    region == :internal       && return 1:ninternalfaces(m) 
+    region == :boundary       && return (ninternalfaces(m)+1):nfaces(m)
+    error("`region` not understood")
 end

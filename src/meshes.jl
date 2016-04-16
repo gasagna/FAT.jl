@@ -24,15 +24,17 @@ export Patch,
 
 export Mesh,
        patch,
-       npatches,
        patches,
+       npatches,
        ncells,
        nfaces,
+       facesIDs,
        nboundaryfaces,
        ninternalfaces,
-       patchfaces,
-       internalfaces,
-       cellcentres
+       cellcentres,
+       faceiterator,
+       facesIDs
+
 
 include("point.jl")
 include("polygonalface.jl")
@@ -74,12 +76,13 @@ end
 
     Fields
     ------
-    fsvecs : face surface vectors
-    fowners : integer indices representing the owner cell of each face
-    fneighs : integer indices representing the neighbour cell of each face
+    fsvecs   : face surface vectors
+    fcentres : face centres
+    fowners  : integer indices representing the owner cell of each face
+    fneighs  : integer indices representing the neighbour cell of each face
     cvolumes : cell volumes
     ccentres : cell mass centroid
-    patches : dictionary of patches
+    patches  : dictionary of patches
     αs : interpolation coefficients for each face
     nboundaryfaces : total number of boundary faces, including 
                      those on empty patches
@@ -87,6 +90,7 @@ end
 """
 type Mesh{T}
     fsvecs::Vector{Point{T}}
+    fcentres::Vector{Point{T}}
     fowners::Vector{UInt32}
     fneighs::Vector{UInt32}
     cvolumes::Vector{T}
@@ -108,50 +112,40 @@ type Mesh{T}
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
         end
-        new(fsvecs, fowners, fneighs, cvolumes, ccentres, patches, αs, 
-            nboundaryfaces, ninternalfaces)
+        new(fsvecs, fcentres, fowners, fneighs, cvolumes, ccentres, 
+            patches, αs, nboundaryfaces, ninternalfaces)
     end
 end
 
 # data type of the mesh points, areas, volumes, ...
 eltype{T}(::Mesh{T}) = T
 
-" Number of faces on the domain boundary "
-@inline nboundaryfaces(m::Mesh) = m.nboundaryfaces
-
-" Number of internal faces "
-@inline ninternalfaces(m::Mesh) = m.ninternalfaces
-
-" Returns a range object to iterate over all internal faces "
-@inline internalfaces(m::Mesh) = 1:m.ninternalfaces
-
-""" 
-    Returns two range objects in a zip to iterate over the faces of a patch. 
-    The first contains indices of the faces, so that we can index the 
-    vectors `fowners` and `fneighs` appropriately. Note that these two 
-    have length equal to the total number of faces in the mesh, i.e. 
-    both the internal and external faces.  The second range object
-    is used to index the vector `.boundaryField` in `ScalarField`
-    object, which contains the solution at the centres of the boundary 
-    faces. An example of usage of this function is the function 
-    `der!` in src/field.jl.
-"""
-function patchfaces(m::Mesh, p::Patch) 
-    faceIDs = firstfaceID(p):lastfaceID(p)
-    return zip(faceIDs, faceIDs - ninternalfaces(m))
+function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
+    print(io, "Mesh object at $(object_id(mesh)):  \n")
+    print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
+    print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
+    print(io, "$gap ~ $(ninternalfaces(mesh)) internal faces\n")
+    print(io, "$gap ~ $(nboundaryfaces(mesh)) boundary faces\n")
+    print(io, "$gap ~ $(length(keys(patches(mesh)))) patches: \n")
+    for (patchname, v) in mesh.patches
+        print(io, "$gap   ~ $(string(patchname)): $(nfaces(v)) faces\n")
+    end
 end
 
-" Total number of faces in the mesh "
-nfaces(m::Mesh) = length(m.fsvecs)
+# include face iterator
+include("faceiterator.jl")
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~
+# === Getter functions ===
+# ~~~~~~~~~~~~~~~~~~~~~~~~
+
+# ~~~ cell functions ~~~
 
 " Total number of cells in the mesh "
 ncells(m::Mesh) = length(m.cvolumes)
 
-" Dictionary of mesh patches "
-patches(m::Mesh) = m.patches
-
-" Get a patch named `pname`"
-patch(m::Mesh, pname::Symbol) = m.patches[pname]
+" Get cell volumes "
+cellvolumes(m::Mesh) = m.cvolumes
 
 " Get `dir` coordinates of cell centres "
 function cellcentres{T}(m::Mesh{T}, dir::Symbol)
@@ -167,42 +161,60 @@ end
 cellcentres(m::Mesh) = 
     (cellcentres(m, :x), cellcentres(m, :y), cellcentres(m, :z))
 
-function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
-    print(io, "Mesh object at $(object_id(mesh)):  \n")
-    print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
-    print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
-    print(io, "$gap ~ $(ninternalfaces(mesh)) internal faces\n")
-    print(io, "$gap ~ $(nboundaryfaces(mesh)) boundary faces\n")
-    print(io, "$gap ~ $(length(keys(patches(mesh)))) patches: \n")
-    for (patchname, v) in mesh.patches
-        print(io, "$gap   ~ $(string(patchname)): $(nfaces(v)) faces\n")
-    end
-end
+# ~~~ face functions ~~~
 
-""" Read the mesh in an OpenFoam case directory 
+" Total number of faces in the mesh "
+nfaces(m::Mesh) = length(m.fsvecs)
+
+" Number of faces on the domain boundary "
+@inline nboundaryfaces(m::Mesh) = m.nboundaryfaces
+
+" Number of internal faces "
+@inline ninternalfaces(m::Mesh) = m.ninternalfaces
+
+# ~~~ patch functions ~~~
+
+" Total number of patches in the mesh "
+npatches(m::Mesh) = length(m.patches)
+
+" Dictionary of mesh patches "
+patches(m::Mesh) = m.patches
+
+" Get a patch named `pname`"
+patch(m::Mesh, pname::Symbol) = m.patches[pname]
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~
+# === Mesh reader ===
+# ~~~~~~~~~~~~~~~~~~~~~~~~
+
+""" 
+        Mesh(casedir, mtype)
+
+    Read the mesh in an OpenFoam case directory 
 
     Parameters
     ----------
-    casedir : the case directory
-    dtype   : main datatype for everything; defaults to Float64
+    casedir : the OpenFOAM case directory
+    mtype   : [optional - default Float64] datatype for points, centres, 
+              volumes, ...
 
 """
-function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
+function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
     # create vector of mesh points
-    points_data = reader(casedir, "points"; dtype=dtype)
-    mesh_points = Point{dtype}[Point(el...) for el in points_data]
+    points_data = reader(casedir, "points"; mtype=mtype)
+    mesh_points = Point{mtype}[Point(el...) for el in points_data]
     
     # read face information
     faces_data = reader(casedir, "faces")
     nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
-    fcentres = Vector{Point{dtype}}(nfaces)
-    fsvecs   = Vector{Point{dtype}}(nfaces)
-    fareas   = Vector{dtype}(nfaces)
+    fcentres = Vector{Point{mtype}}(nfaces)
+    fsvecs   = Vector{Point{mtype}}(nfaces)
+    fareas   = Vector{mtype}(nfaces)
 
     # now build face properties. This loop is not type stable, as ptsID
     # varies between a tuple of 3 or 4 or more points. So all the functions
@@ -227,8 +239,8 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
     local ncells = max(maximum(fowners), maximum(fneighs))
 
     # will construct this as well
-    ccentres = Vector{Point{dtype}}(ncells)  
-    cvolumes = Vector{dtype}(ncells) 
+    ccentres = Vector{Point{mtype}}(ncells)  
+    cvolumes = Vector{mtype}(ncells) 
 
     #=
        Read `owner` and `neighbour` files to obtain a dictionary data 
@@ -261,7 +273,7 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
     # create a dict of patches
     patches = (Symbol=>Patch)[k => Patch(k, v...) 
                               for (k, v) in read_boundary(casedir)]
-    return Mesh{dtype}(fcentres, fsvecs, fowners, fneighs, 
+    return Mesh{mtype}(fcentres, fsvecs, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
 
