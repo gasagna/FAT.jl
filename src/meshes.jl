@@ -89,6 +89,7 @@ end
     ninternalfaces : the total number of internal faces
 """
 type Mesh{T}
+    points::Vector{Point{T}}
     fsvecs::Vector{Point{T}}
     fcentres::Vector{Point{T}}
     fowners::Vector{UInt32}
@@ -99,7 +100,7 @@ type Mesh{T}
     αs::Vector{T}
     nboundaryfaces::Int
     ninternalfaces::Int
-    function Mesh(fcentres, fsvecs, fowners, fneighs, 
+    function Mesh(points, fcentres, fsvecs, fowners, fneighs, 
                   cvolumes, ccentres, patches)
         # number of boundary faces
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
@@ -112,7 +113,7 @@ type Mesh{T}
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
         end
-        new(fsvecs, fcentres, fowners, fneighs, cvolumes, ccentres, 
+        new(points, fsvecs, fcentres, fowners, fneighs, cvolumes, ccentres, 
             patches, αs, nboundaryfaces, ninternalfaces)
     end
 end
@@ -205,7 +206,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
 
     # create vector of mesh points
     points_data = reader(casedir, "points"; mtype=mtype)
-    mesh_points = Point{mtype}[Point(el...) for el in points_data]
+    points = Point{mtype}[Point(el...) for el in points_data]
     
     # read face information
     faces_data = reader(casedir, "faces")
@@ -223,7 +224,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
         # tuple of points ids making the faces
         ptsID = faces_data[faceID]
         # tuple of Points making the faces
-        pts = ntuple(i -> mesh_points[ptsID[i]],  length(ptsID))
+        pts = ntuple(i -> points[ptsID[i]],  length(ptsID))
         # check for disaster
         _inplane(pts) || error("found non planar face with ID $i")
         fcentres[faceID] = _centre(pts)
@@ -273,7 +274,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     # create a dict of patches
     patches = (Symbol=>Patch)[k => Patch(k, v...) 
                               for (k, v) in read_boundary(casedir)]
-    return Mesh{mtype}(fcentres, fsvecs, fowners, fneighs, 
+    return Mesh{mtype}(points, fcentres, fsvecs, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
 
