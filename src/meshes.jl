@@ -213,7 +213,7 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
         # tuple of Points making the faces
         pts = ntuple(i -> mesh_points[ptsID[i]],  length(ptsID))
         # check for disaster
-        inplane(pts) || error("found non planar face with ID $i")
+        _inplane(pts) || error("found non planar face with ID $i")
         fcentres[faceID] = _centre(pts)
         fsvecs[faceID]   = _svec(pts)
         fareas[faceID]   = norm(_svec(pts))
