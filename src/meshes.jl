@@ -97,8 +97,11 @@ type Mesh{T}
     ninternalfaces::Int
     function Mesh(fcentres, fsvecs, fowners, fneighs, 
                   cvolumes, ccentres, patches)
+        # number of boundary faces
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
+        # the remaining are internal faces, for which we need an α
         ninternalfaces = length(fcentres) - nboundaryfaces
+        # calculate interpolation coefficients
         αs = Vector{T}(ninternalfaces)
         for i = 1:ninternalfaces
             αs[i] = interpolationWeight(fcentres[i], 
@@ -185,7 +188,6 @@ end
 
 """
 function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
-
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
@@ -218,8 +220,8 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
     end
 
     # read cell owner information
-    fowners     = reader(casedir, "owner")
-    fneighs     = reader(casedir, "neighbour")
+    fowners = reader(casedir, "owner")
+    fneighs = reader(casedir, "neighbour")
 
     # size of mesh
     local ncells = max(maximum(fowners), maximum(fneighs))
@@ -239,7 +241,7 @@ function Mesh{T<:Real}(casedir::AbstractString, dtype::Type{T}=Float64)
        the IDs of the faces it shares with a neighbour. Note we have 
        Int as the key type and UInt32 as the value.
     =#
-    data = DefaultDict(Int, Vector{UInt32}, Vector{UInt32})
+    data = DefaultDict(UInt32, Vector{UInt32}, Vector{UInt32})
     for cellIDs in (fowners, fneighs)
         for (faceID, cellID) in enumerate(cellIDs)
             push!(data[cellID], faceID)
