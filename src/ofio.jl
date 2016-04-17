@@ -91,7 +91,7 @@ function read_on_binary(casedir::AbstractString, fname::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", fname)) do f
         # ~~~ read data  ~~~
         N = parse(Int, linematches(f, r"^[0-9]+"))
-        out = Vector{Int32}(N)
+        out = Vector{UInt32}(N)
         read(f, Char); read!(f, out)
 
         # ~~~ add one to data ~~~
@@ -135,7 +135,7 @@ function read_faces_ascii(casedir::AbstractString)
         readline(f); 
 
         # faces can have any number of points, so we use an HVector
-        out = HVector{UInt32, UInt32}()
+        out = HVector{UInt32}()
 
         # ~~~ parse all rows ~~~
         for i = 1:N

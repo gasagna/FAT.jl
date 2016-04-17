@@ -20,11 +20,15 @@ let
     ob = FAT.OFIO.read_on_binary(casedir_binary, "owner")
     oa = FAT.OFIO.read_on_ascii(casedir_ascii, "owner")
     @test ob == oa
+    @test eltype(ob) == UInt32
+    @test eltype(oa) == UInt32
 
     # neighbour
     nb = FAT.OFIO.read_on_binary(casedir_binary, "neighbour")
     na = FAT.OFIO.read_on_ascii(casedir_ascii, "neighbour")
     @test nb == na
+    @test eltype(nb) == UInt32
+    @test eltype(na) == UInt32
 end
 
 # test actual value match those in the files
