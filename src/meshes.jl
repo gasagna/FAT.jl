@@ -31,6 +31,8 @@ export Mesh,
        # face functions
        facesvecs,
        facecentres,
+       faceownerID,
+       faceneighID,
        # nfoo functions
        npatches,
        ncells,
@@ -180,6 +182,12 @@ facesvecs(m::Mesh) = m.fsvecs
 
 " Face centres "
 facecentres(m::Mesh) = m.fcentres
+
+" Face cell owner id "
+faceownerID(m::Mesh) = m.fowners
+
+" Face cell neighbour id "
+faceneighID(m::Mesh) = m.fneighs
 
 " Number of faces on the domain boundary "
 @inline nboundaryfaces(m::Mesh) = m.nboundaryfaces

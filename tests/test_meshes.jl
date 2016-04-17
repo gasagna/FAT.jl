@@ -29,8 +29,8 @@ end
 # we currently do not hold the cell->faces information, but 
 # only the other way round. Hence loop over faces here:
 fs = facesvecs(m)
-fo = m.fowners
-fn = m.fneighs
+fo = faceownerID(m)
+fn = faceneighID(m)
 s = zeros(Point{Float64}, ncells(m))
 for faceID in 1:nfaces(m)
     # if it is an internal face we need to consider the neighbour cell
