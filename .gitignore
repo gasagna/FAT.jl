@@ -1,2 +1,1 @@
-./tests/ldc_large
-./tests/ldc_square
+tests/ldc_test_binary/*
