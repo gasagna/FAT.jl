@@ -47,9 +47,9 @@ export SimulationData,
     Parameters
     ----------
        casedir : the OpenFoam case directory;
-     meshdtype : the type of the mesh points, face and cell 
+         mtype : the type of the mesh points, face and cell 
                  centres, ... Defaults to Float64;
-    fielddtype : the type of the field data. Defaults to Float64;
+    ftype : the type of the field data. Defaults to Float64;
 
 """
 type SimulationData{T<:Real}
@@ -57,12 +57,12 @@ type SimulationData{T<:Real}
     fh::HDF5File
     t::Vector{Float64}
     dimensions::Int
-    fielddtype::Type
+    ftype::Type
 end
 
 function SimulationData(casedir::AbstractString; 
-                        meshdtype::Type=Float64, 
-                        fielddtype::Type=Float64)
+                        mtype::Type=Float64, 
+                        ftype::Type=Float64)
     # Check that we are in a good openfoam directory
     iscasedir(casedir) || error("$casedir does not appear to " *
                                  "be an OpenFoam case directory")
@@ -76,13 +76,13 @@ function SimulationData(casedir::AbstractString;
     # read groups, which corresponds to snapshots
     t = sort!([parse(Float64, t) for t in names(fh)])
     # read mesh
-    msh = Mesh(casedir, meshdtype)
+    msh = Mesh(casedir, mtype)
     SimulationData(msh, 
                    fh, 
                    t, 
                    # Parse the number of dimensions of the simulation
                    parse(Int, read(attrs(fh)["dimensions"])), 
-                   fielddtype)
+                   ftype)
 end
 
 " Close hdf5 file "
@@ -101,7 +101,7 @@ ndims(sim::SimulationData) = sim.dimensions
 mesh(sim::SimulationData) = sim.mesh
 
 " Type of data "
-fielddtype(sim::SimulationData) = sim.fielddtype
+ftype(sim::SimulationData) = sim.ftype
 
 " Nice printing "
 function show(io::IO, sim::SimulationData)
@@ -130,16 +130,16 @@ end
 =#
 function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:W}})
     ts = @sprintf "%.6f" t
-    internalField = convert(Matrix{fielddtype(sim)}, 
+    internalField = convert(Matrix{ftype(sim)}, 
                             read(sim.fh["$ts/W/internalField"]))
-    boundaryField = convert(Matrix{fielddtype(sim)}, 
+    boundaryField = convert(Matrix{ftype(sim)}, 
                             read(sim.fh["$ts/W/boundaryField"]))
     # Note that we take slices to avoid copying data. We could 
     # slice the h5 datasets directly, but there is bug #267 of 
     # HDF.jl that make slicing by column return a 
     # Matrix and not a Vector.
     VectorField(ntuple(i->ScalarField{ndims(sim), 
-                                      fielddtype(sim), 
+                                      ftype(sim), 
                                       typeof(mesh(sim))}(
                                      slice(internalField, :, i), 
                                      slice(boundaryField, :, i),
@@ -148,12 +148,12 @@ end
 
 function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:U}})
     ts = @sprintf "%.6f" t
-    internalField = convert(Matrix{fielddtype(sim)}, 
+    internalField = convert(Matrix{ftype(sim)}, 
                             read(sim.fh["$ts/U/internalField"]))
-    boundaryField = convert(Matrix{fielddtype(sim)}, 
+    boundaryField = convert(Matrix{ftype(sim)}, 
                             read(sim.fh["$ts/U/boundaryField"]))
     VectorField(ntuple(i->ScalarField{ndims(sim), 
-                                      fielddtype(sim), 
+                                      ftype(sim), 
                                       typeof(mesh(sim))}(
                                      slice(internalField, :, i), 
                                      slice(boundaryField, :, i),
@@ -165,7 +165,7 @@ function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:ω}})
     internalField = read(sim.fh["$ts/vorticity/internalField"])
     boundaryField = read(sim.fh["$ts/vorticity/boundaryField"])
     ScalarField{ndims(sim), 
-                fielddtype(sim), 
+                ftype(sim), 
                 typeof(mesh(sim))}(internalField, 
                                    boundaryField,
                                    mesh(sim))
