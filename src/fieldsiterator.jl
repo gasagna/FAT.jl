@@ -43,18 +43,18 @@ size(fs::FieldsIterator) = length(fs.ts,)
 length(fs::FieldsIterator) = length(fs.ts)
 eltype{F}(fs::FieldsIterator{F}) = F
 
-for (fname, ftype) in zip([:(:U), :(:W)], 
+for (fname, ft) in zip([:(:U), :(:W)], 
         [:VectorField, :VectorField])
     @eval begin 
         fields(sim::SimulationData, ::Type{Val{$fname}}) = 
-            FieldsIterator{$ftype{ndims(sim), 
-                                 fielddtype(sim), 
-                                 typeof(mesh(sim))}}(sim, $fname, sim.t)
+            FieldsIterator{$ft{ndims(sim), 
+                           ftype(sim), 
+                           typeof(mesh(sim))}}(sim, $fname, sim.t)
         fields(sim::SimulationData, 
                   ::Type{Val{$fname}}, 
                 ts::AbstractVector) = 
-            FieldsIterator{$ftype{ndims(sim), 
-                                  fielddtype(sim), 
-                                  typeof(mesh(sim))}}(sim, $fname, ts)
+            FieldsIterator{$ft{ndims(sim), 
+                           ftype(sim), 
+                           typeof(mesh(sim))}}(sim, $fname, ts)
     end
 end
