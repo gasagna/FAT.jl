@@ -27,16 +27,16 @@ end
     with `regex`. Then do nothing. It is an error if 
     no line matches.
 """
-gotomatch(f::IOStream, regex::Regex) = (linematches(f, regex); nothing)
+gotomatch(f::IO, regex::Regex) = (matchline(f, regex); nothing)
 
 """ 
-        linematches(f, regex)
+        matchline(f, regex)
 
     Scan through an open file `f` until a line match 
     with `regex`. Then return the matching line. It is 
     an error if no line matches.
 """
-function linematches(f::IOStream, regex::Regex) 
+function matchline(f::IO, regex::Regex) 
     for line in eachline(f)
         ismatch(regex, line) && return line
     end
@@ -54,7 +54,7 @@ end
 function read_points_binary(casedir::AbstractString, mtype::Type)
     open(joinpath(casedir, "constant/polyMesh/points")) do f
         # ~~~ allocate times three as we have 3d points ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         out = Vector{Float64}(3*N)
         read(f, Char); read!(f, out)
         
@@ -67,13 +67,13 @@ end
 function read_faces_binary(casedir::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/faces")) do f
         # ~~~ read indices ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         idxs = Vector{UInt32}(N)
         read(f, Char); read!(f, idxs)
 
         # ~~~ read data ~~~
         # There are two lists in this file
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         data = Vector{UInt32}(N)
         read(f, Char); read!(f, data)
 
@@ -90,7 +90,7 @@ end
 function read_on_binary(casedir::AbstractString, fname::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", fname)) do f
         # ~~~ read data  ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         out = Vector{UInt32}(N)
         read(f, Char); read!(f, out)
 
@@ -109,7 +109,7 @@ end
 function read_points_ascii(casedir::AbstractString, mtype::Type)
     open(joinpath(casedir, "constant/polyMesh/points")) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
         # preallocate
@@ -130,7 +130,7 @@ end
 function read_faces_ascii(casedir::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/faces")) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
 
@@ -155,7 +155,7 @@ end
 function read_on_ascii(casedir::AbstractString, filename::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", filename)) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, linematches(f, r"^[0-9]+"))
+        N = parse(Int, matchline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
         # ~~~ parse all rows ~~~
@@ -169,7 +169,7 @@ end
 
 function read_points(casedir::AbstractString, mtype::Type)
     f = open(joinpath(casedir, "constant/polyMesh/points"))
-    line = linematches(f, r"format") 
+    line = matchline(f, r"format") 
     close(f)
     contains(line, "binary") && return read_points_binary(casedir, mtype)
     contains(line, "ascii")  && return read_points_ascii(casedir, mtype)
@@ -178,7 +178,7 @@ end
 
 function read_faces(casedir::AbstractString)
     f = open(joinpath(casedir, "constant/polyMesh/faces"))
-    line = linematches(f, r"format") 
+    line = matchline(f, r"format") 
     close(f)
     contains(line, "binary") && return read_faces_binary(casedir)
     contains(line, "ascii")  && return read_faces_ascii(casedir)
@@ -187,7 +187,7 @@ end
 
 function read_on(casedir::AbstractString, filename::AbstractString)
     f = open(joinpath(casedir, "constant/polyMesh/$filename"))
-    line = linematches(f, r"format") 
+    line = matchline(f, r"format") 
     close(f)
     contains(line, "binary") && return read_on_binary(casedir, filename)
     contains(line, "ascii")  && return read_on_ascii(casedir, filename)
@@ -219,14 +219,14 @@ function read_boundary(casedir::AbstractString)
     # open file
     f = open(joinpath(casedir, "constant/polyMesh/boundary"), "r")
     # go to line where number of patches is shown
-    npatches = parse(Int, linematches(f, r"^[0-9]+"))
+    npatches = parse(Int, matchline(f, r"^[0-9]+"))
     while !eof(f)
         line = readline(f)
         if is_patch_name(line)
             patchname = symbol(strip(line))
-            isempty = contains(linematches(f, r"type"), "empty")
-            nfaces = parse(UInt32, split(strip(linematches(f, r"nFaces"), [' ', ';', '\n']))[2])
-            startface = parse(UInt32, split(strip(linematches(f, r"startFace"), [' ', ';', '\n']))[2])
+            isempty = contains(matchline(f, r"type"), "empty")
+            nfaces = parse(UInt32, split(strip(matchline(f, r"nFaces"), [' ', ';', '\n']))[2])
+            startface = parse(UInt32, split(strip(matchline(f, r"startFace"), [' ', ';', '\n']))[2])
             patches[patchname] = (isempty, nfaces, startface+UInt32(1))
         end
     end 
@@ -239,7 +239,7 @@ end
 
 
 """ Read scalar internal field """
-function read_internal_scalar_field(f::IOStream, mtype::Type=Float64)
+function read_internal_scalar_field(f::IO, mtype::Type=Float64)
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
     mtype[parse(mtype, readline(f)) for i in 1:nlines]
@@ -252,7 +252,7 @@ end
     The argument `dimensions` specifies how many components will be read.
 
 """
-function read_internal_vector_field(f::IOStream, dimensions::Integer, mtype::Type=Float64)
+function read_internal_vector_field(f::IO, dimensions::Integer, mtype::Type=Float64)
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
     out = Matrix{mtype}(nlines, dimensions)
@@ -275,7 +275,7 @@ end
     We only support clearly formatted files, so do not mess 
     up with the output files.
 """
-function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimensions::Integer, mtype::Type=Float64)
+function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::Integer, mtype::Type=Float64)
     # Read the boundary file. This happens every time!
     patches = read_boundary(casedir)
     # value[2] is the number of faces, so we sum them
@@ -289,7 +289,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IOStream, dimens
         # go to a patch name
         if is_patch_name(line)
             patchname = symbol(strip(line))
-            _, patchtype = split(strip(linematches(f, r"type"), [' ', ';', '\n']))
+            _, patchtype = split(strip(matchline(f, r"type"), [' ', ';', '\n']))
             # number of faces in the patch. See the `read_boundary` function above.
             n = Int(patches[patchname][2])
             # for empty patches we do nothing

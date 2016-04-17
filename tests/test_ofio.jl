@@ -56,7 +56,59 @@ let
     @test neighbour_data[end] == 399+1
 end
 
-# # Some functions
+
+# ~~~ helper functions ~~~
+@test FAT.OFIO.iscasedir("./ldc_test_binary") == true
+@test FAT.OFIO.iscasedir("../") == false
+
+# matchline 
+io = IOBuffer(
+"""
+hello
+6
+(
+(0 0 0)
+(0.05 0 0)
+(0.1 0 0)
+(0.15 0 0)
+(0.2 0 0)
+(0.25 0 0)
+)
+
+8
+(
+(0 0 0)
+(0 0 0)
+(0 0 0)
+(0.05 0 0)
+(0.1 0 0)
+(0.15 0 0)
+(0.2 0 0)
+(0.25 0 0)
+)
+""")
+
+@test FAT.OFIO.matchline(io, r"^[0-9]+") == "6\n"
+seek(io, 0)
+
+@test FAT.OFIO.matchline(io, r"hello") == "hello\n"
+seek(io, 0)
+
+@test_throws ErrorException FAT.OFIO.matchline(io, r"not-matching")
+seek(io, 0)
+
+@test FAT.OFIO.matchline(io, r"^[0-9]+") == "6\n"
+@test FAT.OFIO.matchline(io, r"^[0-9]+") == "8\n"
+seek(io, 0)
+
+# gotomatch
+@test FAT.OFIO.gotomatch(io, r"hello") == nothing
+@test readline(io) == "6\n"
+seek(io, 0)
+
+@test_throws ErrorException FAT.OFIO.gotomatch(io, r"not-matching")
+seek(io, 0)
+
 # @test FAT.OFIO.is_patch_name("hello") == true
 # @test FAT.OFIO.is_patch_name("   hello") == true
 # @test FAT.OFIO.is_patch_name("   hello you") == false
