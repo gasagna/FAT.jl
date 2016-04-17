@@ -23,9 +23,13 @@ export Patch,
        nfaces
 
 export Mesh,
+       # points functions
        points,
+       # patches functions
        patch,
        patches,
+       # face functions
+       facesvecs,
        # nfoo functions
        npatches,
        ncells,
@@ -169,6 +173,9 @@ cellcentres(m::Mesh) =
 
 " Total number of faces in the mesh "
 nfaces(m::Mesh) = length(m.fsvecs)
+
+" Face surface vectors "
+facesvecs(m::Mesh) = m.fsvecs
 
 " Number of faces on the domain boundary "
 @inline nboundaryfaces(m::Mesh) = m.nboundaryfaces

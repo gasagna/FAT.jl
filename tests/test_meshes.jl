@@ -32,11 +32,12 @@ m = Mesh(casedir)
 
 # sum of all area surface vectors over the boundary patches is zero,
 # while total area is six
+fs = facesvecs(m)
 S = Point(0.0, 0.0, 0.0)
 A = 0.0
 for (patchname, patch) in patches(m) 
-    S += sum(m.fsvecs[facesIDs(patch)])
-    A += sum(map(norm, m.fsvecs[facesIDs(patch)]))
+    S += sum(fs[facesIDs(patch)])
+    A += sum(map(norm, fs[facesIDs(patch)]))
 end
 @test S == Point(0.0, 0.0, 0.0)
 @test A ≈ 6
