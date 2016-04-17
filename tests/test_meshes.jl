@@ -16,11 +16,30 @@ m = Mesh(casedir)
 # precision arithmetic when loading the data files and in the computations
 @test all(round(m.cvolumes, 6) .== 1.0/400)
 
+# test owner ID is always lower then neighbour ID
+fo = m.fowners
+fn = m.fneighs
+for faceID in 1:ninternalfaces(m)
+    @test fo[faceID] < fn[faceID]
+end
+
 # cell centres is not tested as only used for plotting
 
 # for each cell the sum of the outwards face vectors is zero
 # we currently do not hold the cell->faces information, but 
-# only the other way round.
+# only the other way round. Hence loop over faces here:
+fs = facesvecs(m)
+fo = m.fowners
+fn = m.fneighs
+s = zeros(Point{Float64}, ncells(m))
+for faceID in 1:nfaces(m)
+    # if it is an internal face we need to consider the neighbour cell
+    if faceID <= ninternalfaces(m)
+        s[fn[faceID]] -= fs[faceID]
+    end
+    s[fo[faceID]] += fs[faceID]
+end
+@test maximum(map(norm, s)) == 0.0
 
 # ~~~~~~~~~~~~~~~~~~~
 # TEST FACE FUNCTIONS
@@ -43,11 +62,12 @@ end
 @test A ≈ 6
 
 # test faces on the boundary patches are correctly 
+fc = facecentres(m)
 for (ptch, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
                                     [:y, :y, :x, :x, :z, :z], 
                                     [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
       for faceID in facesIDs(m, ptch)
-          @test getfield(m.fcentres[faceID], coord) == value
+          @test getfield(fc[faceID], coord) == value
       end
 end
 
