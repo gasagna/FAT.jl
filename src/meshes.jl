@@ -23,17 +23,20 @@ export Patch,
        nfaces
 
 export Mesh,
+       points,
        patch,
        patches,
+       # nfoo functions
        npatches,
        ncells,
        nfaces,
+       npoints,
+       # face iterator related
+       faceiterator,
        facesIDs,
        nboundaryfaces,
        ninternalfaces,
-       cellcentres,
-       faceiterator,
-       facesIDs
+       cellcentres
 
 
 include("point.jl")
@@ -100,7 +103,7 @@ type Mesh{T}
     αs::Vector{T}
     nboundaryfaces::Int
     ninternalfaces::Int
-    function Mesh(points, fcentres, fsvecs, fowners, fneighs, 
+    function Mesh(points, fsvecs, fcentres, fowners, fneighs, 
                   cvolumes, ccentres, patches)
         # number of boundary faces
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
@@ -113,8 +116,8 @@ type Mesh{T}
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
         end
-        new(points, fsvecs, fcentres, fowners, fneighs, cvolumes, ccentres, 
-            patches, αs, nboundaryfaces, ninternalfaces)
+        new(points, fsvecs, fcentres, fowners, fneighs, cvolumes, 
+            ccentres, patches, αs, nboundaryfaces, ninternalfaces)
     end
 end
 
@@ -183,6 +186,14 @@ patches(m::Mesh) = m.patches
 
 " Get a patch named `pname`"
 patch(m::Mesh, pname::Symbol) = m.patches[pname]
+
+# ~~~ points functions ~~~
+
+" Total number of points in the mesh "
+npoints(m::Mesh) = length(m.points)
+
+" Points in the mesh "
+points(m::Mesh) = m.points
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # === Mesh reader ===
@@ -274,7 +285,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     # create a dict of patches
     patches = (Symbol=>Patch)[k => Patch(k, v...) 
                               for (k, v) in read_boundary(casedir)]
-    return Mesh{mtype}(points, fcentres, fsvecs, fowners, fneighs, 
+    return Mesh{mtype}(points, fsvecs, fcentres, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
 

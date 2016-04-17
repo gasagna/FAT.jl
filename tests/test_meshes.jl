@@ -19,16 +19,8 @@ m = Mesh(casedir)
 # cell centres is not tested as only used for plotting
 
 # for each cell the sum of the outwards face vectors is zero
-# fcs = faces(m)
-# for cellID in 1:ncells(m)
-    # s = Point(0.0, 0.0, 0.0)
-    # for faceID in facesIDs(cell)
-#       sign = isoutwards(cellID, fcs[faceID]) ? 1 : -1
-#       S += svec(fcs[faceID])*sign
-#   end
-#   @test norm(S) ≈ 0.0
-# end
-
+# we currently do not hold the cell->faces information, but 
+# only the other way round.
 
 # ~~~~~~~~~~~~~~~~~~~
 # TEST FACE FUNCTIONS
@@ -50,10 +42,10 @@ end
 @test A ≈ 6
 
 # test faces on the boundary patches are correctly 
-for (ptchname, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
+for (ptch, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
                                     [:y, :y, :x, :x, :z, :z], 
                                     [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
-      for faceID in facesIDs(m, ptchname)
+      for faceID in facesIDs(m, ptch)
           @test getfield(m.fcentres[faceID], coord) == value
       end
 end
@@ -146,3 +138,16 @@ for faceID in facesIDs(m, :internal)
   # ownerID < neighbourID. Only internal faces have a neighbour. 
   @test m.fowners[faceID] < m.fneighs[faceID]
 end
+
+# ~~~~~~~~~~~~~~~~~~~~
+# TEST INTERNAL FIELDS 
+# ~~~~~~~~~~~~~~~~~~~~
+#  ~~~ points
+
+@test npoints(m) == 882
+
+# they are in the same order as in the file
+@test points(m)[1]     == Point(0.00, 0, 0)
+@test points(m)[2]     == Point(0.05, 0, 0)
+@test points(m)[end-1] == Point(0.95, 1, 1)
+@test points(m)[end]   == Point(1.00, 1, 1)
