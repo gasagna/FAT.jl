@@ -38,4 +38,6 @@ pplus  = Point(0.0, +0.0, 0.0)
 @test Point(1, -1, 1) != Point(1, 1, 1)
 @test Point(-1, 1, 1) != Point(1, 1, 1)
 
-
+# tests zero
+@test zero(Point{Float64})  == Point(0.0, 0.0, 0.0)
+@test eltype(zero(Point{UInt64})) == UInt64

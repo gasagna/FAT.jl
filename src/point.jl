@@ -3,8 +3,10 @@
 # ------------------------------------------------------------------- #
 import Base: show,
              norm,
+             zero,
              cross,
              getindex,
+             eltype,
              +,
              -,
              /,
@@ -48,3 +50,9 @@ distance(a::Point, b::Point) = norm(a-b)
 cross(a::Point, b::Point) = Point(a.y*b.z - a.z*b.y, 
                                   a.z*b.x - a.x*b.z, 
                                   a.x*b.y - a.y*b.x)
+
+# make a zero point
+zero{T}(::Type{Point{T}}) = Point(zero(T), zero(T), zero(T))
+
+# eltype
+eltype{T}(::Point{T}) = T
