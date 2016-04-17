@@ -4,6 +4,7 @@
 module Meshes
 
 import DataStructures: DefaultDict
+import HVectors: HVector
 
 import Base: start,
              next,
@@ -236,13 +237,13 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
-    # create vector of mesh points
-    points_data = read_points(casedir, mtype)
+    # create vector of mesh points. It he
+    points_data = read_points(casedir, mtype)::Vector{NTuple{3, mtype}}
     points = Point{mtype}[Point(el...) for el in points_data]
     
     # read face information
-    faces_data = read_faces(casedir)
-    nfaces = length(faces_data)
+    faces_data = read_faces(casedir)::HVector{UInt32, UInt32}
+    local nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
     fcentres = Vector{Point{mtype}}(nfaces)
@@ -265,8 +266,8 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     end
 
     # read cell owner information
-    fowners = read_on(casedir, "owner")
-    fneighs = read_on(casedir, "neighbour")
+    fowners = read_on(casedir, "owner")::Vector{UInt32}
+    fneighs = read_on(casedir, "neighbour")::Vector{UInt32}
 
     # size of mesh
     local ncells = max(maximum(fowners), maximum(fneighs))
@@ -287,9 +288,9 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
        Int as the key type and UInt32 as the value.
     =#
     data = DefaultDict(UInt32, Vector{UInt32}, Vector{UInt32})
-    for cellIDs in (fowners, fneighs)
-        for (faceID, cellID) in enumerate(cellIDs)
-            push!(data[cellID], faceID)
+    for fcellIDs in (fowners, fneighs)
+        for faceID in eachindex(fcellIDs)
+            push!(data[fcellIDs[faceID]], faceID)
         end
     end
 
