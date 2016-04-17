@@ -4,6 +4,15 @@ using FAT.Meshes
 casedir = "./ldc_test"
 m = Mesh(casedir)
 
+# ~~~~~~~~~~~~~~~~~~~~~
+# TEST POINTS FUNCTIONS
+# ~~~~~~~~~~~~~~~~~~~~~
+@test npoints(m) == 882
+@test points(m)[1]     == Point(0.00, 0, 0)
+@test points(m)[2]     == Point(0.05, 0, 0)
+@test points(m)[end-1] == Point(0.95, 1, 1)
+@test points(m)[end]   == Point(1.00, 1, 1)
+
 # ~~~~~~~~~~~~~~~~~~~
 # TEST CELL FUNCTIONS
 # ~~~~~~~~~~~~~~~~~~~
@@ -159,16 +168,3 @@ for faceID in facesIDs(m, :internal)
   # ownerID < neighbourID. Only internal faces have a neighbour. 
   @test m.fowners[faceID] < m.fneighs[faceID]
 end
-
-# ~~~~~~~~~~~~~~~~~~~~
-# TEST INTERNAL FIELDS 
-# ~~~~~~~~~~~~~~~~~~~~
-#  ~~~ points
-
-@test npoints(m) == 882
-
-# they are in the same order as in the file
-@test points(m)[1]     == Point(0.00, 0, 0)
-@test points(m)[2]     == Point(0.05, 0, 0)
-@test points(m)[end-1] == Point(0.95, 1, 1)
-@test points(m)[end]   == Point(1.00, 1, 1)
