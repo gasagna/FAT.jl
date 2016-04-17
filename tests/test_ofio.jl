@@ -1,50 +1,77 @@
 using Base.Test
 using FAT.OFIO
 
-casedir = "/Users/davide/Dropbox/Codes/FAT/tests/ldc_test"
+# binary and ascii return the same data
+let 
+    casedir_binary = "./ldc_test_binary"
+    casedir_ascii  = "./ldc_test"
 
-# MESH READERS
-points_data = FAT.OFIO.reader(casedir, "points")
-@test length(points_data) == 882
-@test points_data[1] == (0.0, 0.0, 0.0)
-@test points_data[end] == (1.0, 1.0, 1.0)
+    # faces 
+    fb = FAT.OFIO.read_faces_binary(casedir_binary)
+    fa = FAT.OFIO.read_faces_ascii(casedir_ascii)
+    @test fb == fa
 
-faces_data = FAT.OFIO.reader(casedir, "faces")
-@test length(faces_data) == 1640
-@test faces_data[1] == (1+1, 22+1, 463+1, 442+1)
-@test faces_data[end] == (859+1, 860+1, 881+1, 880+1)
+    # points
+    pb = FAT.OFIO.read_points_binary(casedir_binary, Float64)
+    pa = FAT.OFIO.read_points_ascii(casedir_ascii, Float64)
+    @test pb == pa
 
-owners_data = FAT.OFIO.reader(casedir, "owner")
-@test length(owners_data) == 1640
-@test owners_data[1] == 0+1
-@test owners_data[end] == 399+1
+    # owner
+    ob = FAT.OFIO.read_on_binary(casedir_binary, "owner")
+    oa = FAT.OFIO.read_on_ascii(casedir_ascii, "owner")
+    @test ob == oa
 
-neighbour_data = FAT.OFIO.reader(casedir, "neighbour")
-@test length(neighbour_data) == 760
-@test neighbour_data[1] == 1+1
-@test neighbour_data[end] == 399+1
-
-
-# Some functions
-@test FAT.OFIO.is_patch_name("hello") == true
-@test FAT.OFIO.is_patch_name("   hello") == true
-@test FAT.OFIO.is_patch_name("   hello you") == false
-@test FAT.OFIO.is_patch_name("hello you") == false
-@test FAT.OFIO.is_patch_name("hello you  ") == false
-
-# read boundary file
-out = FAT.OFIO.read_boundary(casedir)
-for t in [:top, :bottom, :left, :right, :front1, :back0]
-    @test t in keys(out)
+    # neighbour
+    nb = FAT.OFIO.read_on_binary(casedir_binary, "neighbour")
+    na = FAT.OFIO.read_on_ascii(casedir_ascii, "neighbour")
+    @test nb == na
 end
-# these are non-empty patches
-for t in [:top, :bottom, :left, :right]
-    @test out[t][1] == false
+
+# test actual value match those in the files
+let 
+    casedir = "./ldc_test"
+
+    points_data = FAT.OFIO.read_points(casedir, Float64)
+    @test length(points_data) == 882
+    @test points_data[1] == (0.0, 0.0, 0.0)
+    @test points_data[end] == (1.0, 1.0, 1.0)
+
+    faces_data = FAT.OFIO.read_faces(casedir)
+    @test length(faces_data) == 1640
+    @test faces_data[1] == [1+1, 22+1, 463+1, 442+1]
+    @test faces_data[end] == [859+1, 860+1, 881+1, 880+1]
+
+    owners_data = FAT.OFIO.read_on(casedir, "owner")
+    @test length(owners_data) == 1640
+    @test owners_data[1] == 0+1
+    @test owners_data[end] == 399+1
+
+    neighbour_data = FAT.OFIO.read_on(casedir, "neighbour")
+    @test length(neighbour_data) == 760
+    @test neighbour_data[1] == 1+1
+    @test neighbour_data[end] == 399+1
 end
-# these are empty patches
-for t in [:front1, :back0]
-    @test out[t][1] == true
-end
+
+# # Some functions
+# @test FAT.OFIO.is_patch_name("hello") == true
+# @test FAT.OFIO.is_patch_name("   hello") == true
+# @test FAT.OFIO.is_patch_name("   hello you") == false
+# @test FAT.OFIO.is_patch_name("hello you") == false
+# @test FAT.OFIO.is_patch_name("hello you  ") == false
+
+# # read boundary file
+# out = FAT.OFIO.read_boundary(casedir)
+# for t in [:top, :bottom, :left, :right, :front1, :back0]
+#     @test t in keys(out)
+# end
+# # these are non-empty patches
+# for t in [:top, :bottom, :left, :right]
+#     @test out[t][1] == false
+# end
+# # these are empty patches
+# for t in [:front1, :back0]
+#     @test out[t][1] == true
+# end
 
 
 # # DATA FILE READERS
