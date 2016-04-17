@@ -26,8 +26,8 @@ m = Mesh(casedir)
 @test all(round(m.cvolumes, 6) .== 1.0/400)
 
 # test owner ID is always lower then neighbour ID
-fo = m.fowners
-fn = m.fneighs
+fo = faceownerID(m)
+fn = faceneighID(m)
 for faceID in 1:ninternalfaces(m)
     @test fo[faceID] < fn[faceID]
 end
@@ -166,5 +166,5 @@ end
 for faceID in facesIDs(m, :internal)
   # an internal face points from the owner to the neighbour and so 
   # ownerID < neighbourID. Only internal faces have a neighbour. 
-  @test m.fowners[faceID] < m.fneighs[faceID]
+  @test faceownerID(m)[faceID] < faceneighID(m)[faceID]
 end
