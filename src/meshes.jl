@@ -277,17 +277,14 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     cvolumes = Vector{mtype}(ncells) 
 
     #=
-       Read `owner` and `neighbour` files to obtain a dictionary data 
-       structure containing for each cell a list of its faces. 
-       Basically, the dictionary `data` will be such that `data[1]` 
-       contains the IDs of the faces of cell 1. Reading only the 
-       `owner` file is not enough because the dictionary `data`
-       would only contain for a given cell the IDs of the faces it 
-       owns. By reading the `neighbour` file we also add for each cell
-       the IDs of the faces it shares with a neighbour. Note we have 
-       Int as the key type and UInt32 as the value.
+       Read `owner` and `neighbour` files to obtain a vector of vectors, 
+       in which the `i`-th vector contains a list of faces forming cell `i`.
+       Reading only the `owner` file is not enough because the resulting
+       data structure would only contain, for a given cell, the IDs of the 
+       faces it owns. By reading the `neighbour` file we also add, for each 
+       cell, the IDs of the faces it shares with a neighbour.
     =#
-    data = DefaultDict(UInt32, Vector{UInt32}, Vector{UInt32})
+    data = Vector{UInt32}[UInt32[] for i = 1:ncells]
     for fcellIDs in (fowners, fneighs)
         for faceID in eachindex(fcellIDs)
             push!(data[fcellIDs[faceID]], faceID)
@@ -296,7 +293,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
 
     # Note that here we need to use indexing of the ccentres and cvolumes
     # vectors instead of just push! because `data` is an unordered dictionary
-    for (cellID, faceIDs) in data
+    for (cellID, faceIDs) in enumerate(data)
         # tuples of faces areas and centres
         areas   = ntuple(i -> fareas[faceIDs[i]],   length(faceIDs))
         centres = ntuple(i -> fcentres[faceIDs[i]], length(faceIDs))
