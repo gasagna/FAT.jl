@@ -250,19 +250,22 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     fsvecs   = Vector{Point{mtype}}(nfaces)
     fareas   = Vector{mtype}(nfaces)
 
-    # now build face properties. This loop is not type stable, as ptsID
-    # varies between a tuple of 3 or 4 or more points. So all the functions
-    # below need to have dynamic dispatch at runtime, which is also slow.       
+    # Temporary vector for storing points in a faces
+    pts = Vector{Point{mtype}}(10)
+
+    # Now build face properties 
     for faceID = 1:nfaces
-        # tuple of points ids making the faces
-        ptsID = faces_data[faceID]
-        # tuple of Points making the faces
-        pts = ntuple(i -> points[ptsID[i]],  length(ptsID))
+        # IDs of points making the current face
+        ptsIDs = faces_data[faceID]
+        # copy points making current face into temporary pts
+        for (i, ptsID) in enumerate(ptsIDs)
+            pts[i] = points[ptsID]
+        end
         # check for disaster
-        _inplane(pts) || error("found non planar face with ID $i")
-        fcentres[faceID] = _centre(pts)
-        fsvecs[faceID]   = _svec(pts)
-        fareas[faceID]   = norm(_svec(pts))
+        _inplane(pts, length(ptsIDs)) || error("found non planar face with ID $faceID")
+        fcentres[faceID] = _centre(pts, length(ptsIDs))
+        fsvecs[faceID]   = _svec(pts, length(ptsIDs))
+        fareas[faceID]   = norm(fsvecs[faceID])
     end
 
     # read cell owner information

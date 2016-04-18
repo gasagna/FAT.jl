@@ -46,8 +46,8 @@ for Q in (Q1, Q2)
 
     for faceIDs in faceIDss
         pts = ntuple(i -> nds[faceIDs[i]], 4)
-        push!(fcentres, FAT.Meshes._centre(pts))
-        push!(fareas,   FAT.Meshes._area(pts))
+        push!(fcentres, FAT.Meshes._centre(pts...))
+        push!(fareas,   FAT.Meshes._area(pts...))
     end
 
     # build cell
