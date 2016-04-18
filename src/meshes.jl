@@ -294,14 +294,19 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
         end
     end
 
-    # Note that here we need to use indexing of the ccentres and cvolumes
-    # vectors instead of just push! because `data` is an unordered dictionary
-    for (cellID, faceIDs) in enumerate(data)
-        # tuples of faces areas and centres
-        areas   = ntuple(i -> fareas[faceIDs[i]],   length(faceIDs))
-        centres = ntuple(i -> fcentres[faceIDs[i]], length(faceIDs))
-        # perform computation
-        ccentres[cellID], cvolumes[cellID] = _centreAndVolume(areas, centres)
+    # Temporaries for constructing the cell information
+    areas = Vector{mtype}(10)
+    centres = Vector{Point{mtype}}(10)
+
+    # Now construct cell information
+    for (cellID, faceIDs) in enumerate(data)  # for each cell
+        for (i, faceID) in enumerate(faceIDs) # for each face in the cell
+            areas[i] = fareas[faceID]         # collect face area
+            centres[i] = fcentres[faceID]     # collect face centre
+        end
+        # then perform computation
+        ccentres[cellID], cvolumes[cellID] = (
+            _centreAndVolume(areas, centres, length(faceIDs)) )
     end
 
     # create a dict of patches

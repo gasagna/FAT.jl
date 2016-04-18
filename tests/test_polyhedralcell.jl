@@ -51,7 +51,7 @@ for Q in (Q1, Q2)
     end
 
     # build cell
-    cc, cv = FAT.Meshes._centreAndVolume(tuple(fareas...), tuple(fcentres...))
+    cc, cv = FAT.Meshes._centreAndVolume(fareas, fcentres, length(faceIDss))
 
     # check centre and volume
     @test distance(cc, Point(Q*asarray(Point(0.5, 0.5, 0.5))...)) < 5e-16
