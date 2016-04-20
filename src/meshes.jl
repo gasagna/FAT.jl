@@ -13,9 +13,7 @@ import Base: start,
              eltype,
              show
 
-import FAT.OFIO: read_points,
-                 read_faces,
-                 read_on,
+import FAT.OFIO: reader,
                  read_boundary,
                  iscasedir
 
@@ -238,11 +236,11 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
     # create vector of mesh points. It he
-    points_data = read_points(casedir, mtype)::Vector{NTuple{3, mtype}}
+    points_data = reader(casedir, "points", mtype)::Vector{NTuple{3, mtype}}
     points = Point{mtype}[Point(el...) for el in points_data]
     
     # read face information
-    faces_data = read_faces(casedir)::HVector{UInt32, UInt32}
+    faces_data = reader(casedir, "faces")::HVector{UInt32, UInt32}
     local nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
@@ -269,8 +267,8 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     end
 
     # read cell owner information
-    fowners = read_on(casedir, "owner")::Vector{UInt32}
-    fneighs = read_on(casedir, "neighbour")::Vector{UInt32}
+    fowners = reader(casedir, "owner")::Vector{UInt32}
+    fneighs = reader(casedir, "neighbour")::Vector{UInt32}
 
     # size of mesh
     local ncells = max(maximum(fowners), maximum(fneighs))

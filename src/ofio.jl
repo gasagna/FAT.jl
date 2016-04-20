@@ -7,13 +7,13 @@ using HVectors
 
 
 # ~~~~~~~~~~~~~~~~~
-# Generic functions
+# Helper functions
 # ~~~~~~~~~~~~~~~~~
 
 """ 
         iscasedir(casedir)
 
-    Check if `directory` is an OpenFoam case directory.
+    Check if `directory` is an OpenFOAM case directory.
 """
 function iscasedir(casedir::AbstractString)
     files = readdir(casedir)
@@ -27,34 +27,50 @@ end
     with `regex`. Then do nothing. It is an error if 
     no line matches.
 """
-gotomatch(f::IO, regex::Regex) = (matchline(f, regex); nothing)
+gotomatch(f::IO, regex::Regex) = (matchingline(f, regex); nothing)
 
 """ 
-        matchline(f, regex)
+        matchingline(f, regex)
 
     Scan through an open file `f` until a line match 
     with `regex`. Then return the matching line. It is 
     an error if no line matches.
 """
-function matchline(f::IO, regex::Regex) 
+function matchingline(f::IO, regex::Regex) 
     for line in eachline(f)
         ismatch(regex, line) && return line
     end
     error("no match found with $regex in $f")
 end
 
+""" 
+        fileformat(filename)
+
+    Detect file format of an OpenFOAM file by parsing the 
+    FoamFile dictionary at the beginning of the the file.
+    An error is raised if no format is detected.
+"""
+function fileformat(filename::AbstractString)
+    open(filename) do f
+        m = matchall(r"binary|ascii", matchingline(f, r"format"))
+        length(m) == 0 && error("no suitable format found in $filename")
+        return m[1]
+    end
+end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Functions to read OpenFoam mesh files
+# Functions to read OpenFOAM mesh files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The below functions are specific implementations
+# for each type of file ("points", "faces"), and for 
+# binary/ascii format.
    
-# binary OpenFOAM mesh reader
+# ~~~ binary OpenFOAM mesh readers
 
-""" Read the `points` file in the constant/polyMesh directory """
 function read_points_binary(casedir::AbstractString, mtype::Type)
     open(joinpath(casedir, "constant/polyMesh/points")) do f
         # ~~~ allocate times three as we have 3d points ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         out = Vector{Float64}(3*N)
         read(f, Char); read!(f, out)
         
@@ -63,17 +79,16 @@ function read_points_binary(casedir::AbstractString, mtype::Type)
     end
 end
 
-""" Read the `faces` file in the constant/polyMesh directory """
 function read_faces_binary(casedir::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/faces")) do f
         # ~~~ read indices ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         idxs = Vector{UInt32}(N)
         read(f, Char); read!(f, idxs)
 
         # ~~~ read data ~~~
         # There are two lists in this file
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         data = Vector{UInt32}(N)
         read(f, Char); read!(f, data)
 
@@ -86,11 +101,11 @@ function read_faces_binary(casedir::AbstractString)
     end
 end
 
-""" Read the `owner` or `neighbour` file in the constant/polyMesh directory """
+# generic function valid for "owner" and "neighbour"
 function read_on_binary(casedir::AbstractString, fname::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", fname)) do f
         # ~~~ read data  ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         out = Vector{UInt32}(N)
         read(f, Char); read!(f, out)
 
@@ -103,13 +118,12 @@ function read_on_binary(casedir::AbstractString, fname::AbstractString)
 end
 
 
-# ASCII OpenFOAM mesh reader
+# ~~~ ASCII OpenFOAM mesh readers
 
-""" Read the `points` file in the constant/polyMesh directory """
 function read_points_ascii(casedir::AbstractString, mtype::Type)
     open(joinpath(casedir, "constant/polyMesh/points")) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
         # preallocate
@@ -126,11 +140,10 @@ function read_points_ascii(casedir::AbstractString, mtype::Type)
     end
 end
 
-""" Read the `faces` file in the constant/polyMesh directory """
 function read_faces_ascii(casedir::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/faces")) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
 
@@ -151,11 +164,11 @@ function read_faces_ascii(casedir::AbstractString)
     end
 end
 
-""" Read the `owner` or `neighbour` file in the constant/polyMesh directory """
+# generic function valid for "owner" and "neighbour"
 function read_on_ascii(casedir::AbstractString, filename::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", filename)) do f
         # ~~~ number of lines to read ~~~
-        N = parse(Int, matchline(f, r"^[0-9]+"))
+        N = parse(Int, matchingline(f, r"^[0-9]+"))
         # skip (
         readline(f); 
         # ~~~ parse all rows ~~~
@@ -163,37 +176,30 @@ function read_on_ascii(casedir::AbstractString, filename::AbstractString)
     end
 end
 
+# also define methods such as read_owner_binary, ...
+for fmt in [:_ascii, :_binary], filename in ["owner", "neighbour"]
+    @eval $(symbol(:read_, filename, fmt))(casedir) = 
+        $(symbol(:read_on, fmt))(casedir, $filename)
+end
 
 # Generic functions that are called in mesh.jl and does dispatch, 
-# depending on the type of file, i.e. ascii or binary
+# depending on the type of file and file format.
 
-function read_points(casedir::AbstractString, mtype::Type)
-    f = open(joinpath(casedir, "constant/polyMesh/points"))
-    line = matchline(f, r"format") 
-    close(f)
-    contains(line, "binary") && return read_points_binary(casedir, mtype)
-    contains(line, "ascii")  && return read_points_ascii(casedir, mtype)
-    error("no suitable format found [ascii/binary]")
+"""
+        reader(casedir, filename, args...)
+
+    Generic entry-point function for reading OpenFOAM mesh files. 
+    This function is used in meshes.jl for loading all types of 
+    mesh files. The last argument args... can be empty or have some
+    value, as the "_points" functions expect an "mtype" argument, 
+    whereas the other do not.
+"""
+function reader(casedir::AbstractString, filename::AbstractString, args...)
+    fmt = fileformat(joinpath(casedir, "constant/polyMesh/$filename"))
+    fname = symbol("read_", filename, "_", fmt) # define function name
+    @eval $fname($casedir, $args...)
 end
-
-function read_faces(casedir::AbstractString)
-    f = open(joinpath(casedir, "constant/polyMesh/faces"))
-    line = matchline(f, r"format") 
-    close(f)
-    contains(line, "binary") && return read_faces_binary(casedir)
-    contains(line, "ascii")  && return read_faces_ascii(casedir)
-    error("no suitable format found [ascii/binary]")
-end
-
-function read_on(casedir::AbstractString, filename::AbstractString)
-    f = open(joinpath(casedir, "constant/polyMesh/$filename"))
-    line = matchline(f, r"format") 
-    close(f)
-    contains(line, "binary") && return read_on_binary(casedir, filename)
-    contains(line, "ascii")  && return read_on_ascii(casedir, filename)
-    error("no suitable format found [ascii/binary]")
-end
-
+      
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
 # Functions to read patches
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -219,14 +225,14 @@ function read_boundary(casedir::AbstractString)
     # open file
     f = open(joinpath(casedir, "constant/polyMesh/boundary"), "r")
     # go to line where number of patches is shown
-    npatches = parse(Int, matchline(f, r"^[0-9]+"))
+    npatches = parse(Int, matchingline(f, r"^[0-9]+"))
     while !eof(f)
         line = readline(f)
         if is_patch_name(line)
             patchname = symbol(strip(line))
-            isempty = contains(matchline(f, r"type"), "empty")
-            nfaces = parse(UInt32, split(strip(matchline(f, r"nFaces"), [' ', ';', '\n']))[2])
-            startface = parse(UInt32, split(strip(matchline(f, r"startFace"), [' ', ';', '\n']))[2])
+            isempty = contains(matchingline(f, r"type"), "empty")
+            nfaces = parse(UInt32, split(strip(matchingline(f, r"nFaces"), [' ', ';', '\n']))[2])
+            startface = parse(UInt32, split(strip(matchingline(f, r"startFace"), [' ', ';', '\n']))[2])
             patches[patchname] = (isempty, nfaces, startface+UInt32(1))
         end
     end 
@@ -234,7 +240,7 @@ function read_boundary(casedir::AbstractString)
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Functions to read OpenFoam output files
+# Functions to read OpenFOAM output files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -265,6 +271,8 @@ function read_internal_vector_field(f::IO, dimensions::Integer, mtype::Type=Floa
     out
 end
 
+# function read_internal_vector_field_binary(f::IO, dimensions::)
+
 """ Read the vector field on the domain boundary.
 
     Currently we recognize the following types of values:
@@ -289,7 +297,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::
         # go to a patch name
         if is_patch_name(line)
             patchname = symbol(strip(line))
-            _, patchtype = split(strip(matchline(f, r"type"), [' ', ';', '\n']))
+            _, patchtype = split(strip(matchingline(f, r"type"), [' ', ';', '\n']))
             # number of faces in the patch. See the `read_boundary` function above.
             n = Int(patches[patchname][2])
             # for empty patches we do nothing
