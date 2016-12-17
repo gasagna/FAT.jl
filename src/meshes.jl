@@ -4,7 +4,7 @@
 module Meshes
 
 import DataStructures: DefaultDict
-import HVectors: HVector
+import HeterogeneousVectors: HVector
 
 import Base: start,
              next,

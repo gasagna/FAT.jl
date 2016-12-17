@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------- #
 module OFIO
 
-using HVectors
+using HeterogeneousVectors
 
 
 # ~~~~~~~~~~~~~~~~~
