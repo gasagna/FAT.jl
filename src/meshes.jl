@@ -133,7 +133,7 @@ end
 eltype{T}(::Mesh{T}) = T
 
 function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
-    print(io, "Mesh object at $(object_id(mesh)):  \n")
+    print(io, "Mesh object \n")
     print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
     print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
     print(io, "$gap ~ $(ninternalfaces(mesh)) internal faces\n")
