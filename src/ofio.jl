@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------- #
 module OFIO
 
-using HVectors
+using HeterogeneousVectors
 
 import FAT.Constants: BC_EMPTY, BC_FIXEDVALUE
 
