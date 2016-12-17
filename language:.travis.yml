@@ -1,0 +1,5 @@
+language: julia
+os:
+  - osx
+julia:
+  - v0.4
