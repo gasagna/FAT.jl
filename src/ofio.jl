@@ -239,58 +239,71 @@ function read_boundary(casedir::AbstractString)
     patches
 end
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Functions to read OpenFOAM output files
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Functions to read OpenFOAM vector field files
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+""" Read an OpenFoam vector field file and return the internal 
+    and boundary fields, as vectors of vectors of appropriate size.
 
-""" Read scalar internal field """
-function read_internal_scalar_field(f::IO, mtype::Type=Float64)
-    gotomatch(f, r"internalField")
-    nlines = parse(Int, readline(f)); readline(f)
-    mtype[parse(mtype, readline(f)) for i in 1:nlines]
+    `dims` is a tuple with the dimensions that will be read. 
+"""
+function read_vector_field(filename::AbstractString, dims::Tuple{Vararg{Int}})
+    open(filename, "r") do f
+        # Parse file format. Raises an error if not ascii or binary
+        format = fileformat(f) 
+
+        # Read internal and boundary fields. We assume that the former
+        # preceeds the latter in the output files. Otherwise we fail 
+        # badly. We could do dispatch based on the format, but we
+        # would need to do dynamic dispatch at runtime. The if clause
+        # here leads to faster code, although it does not really matter
+        # for the overall performance.
+        format == "binary" && 
+            return (read_internal_vector_field_binary(f, dims),
+                    read_boundary_vector_field_binary(f, dims))
+        
+        format == "ascii" && 
+            return (read_internal_vector_field_ascii(f, dims),
+                    read_boundary_vector_field_ascii(f, dims))
+
+    end
 end
 
-""" Read vector internal field.
-
-    Notes
-    -----
-    The argument `dimensions` specifies how many components will be read.
-
-"""
-function read_internal_vector_field(f::IO, dimensions::Integer, mtype::Type=Float64)
+function read_internal_vector_field_ascii(f::IO, dims::Tuple{Vararg{Int}})
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
-    out = Matrix{mtype}(nlines, dimensions)
+    # load data into a large matrix
+    out = zeros(nlines, length(dims))
     for i = 1:nlines
         m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
-        for j = 1:dimensions
-            out[i, j] = parse(mtype, m[j])
+        for j = 1:length(dims)
+            out[i, j] = parse(Float64, m[dims[j]])
         end
     end
-    out
+    [slice(out, :, j) for j in 1:length(dims)]
 end
 
-# function read_internal_vector_field_binary(f::IO, dimensions::)
+function read_internal_vector_field_binary(f::IO, dims::Tuple{Vararg{Int}})
+    gotomatch(f, r"internalField")
+    # get number of internal cell centers
+    ncells = parse(Int, readline(f))
+    # skip the leading (
+    read(f, Char)
+    # read into large matrix, then split
+    # TODO: have this more efficient
+    out = read(f, Float64, (3, ncells))
+    [slice(out, d, :) for d in dims]
+end
 
-""" Read the vector field on the domain boundary.
-
-    Currently we recognize the following types of values:
-
-    ~ type fixedValue
-      value uniform (ux, uy, uz)
-
-    We only support clearly formatted files, so do not mess 
-    up with the output files.
-"""
-function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::Integer, mtype::Type=Float64)
+function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::Tuple{Vararg{Int}})
     # Read the boundary file. This happens every time!
     patches = read_boundary(casedir)
     # value[2] is the number of faces, so we sum them
     nboundaryfaces = sum([Int(value[2]) for (key, value) in patches])
     # number of internal faces. value[3] is the starting face, so we get the min
     nInternalFaces = minimum([Int(value[3]) for (key, value) in patches]) - 1
-    output = zeros(mtype, nboundaryfaces, dimensions)
+    output = zeros(nboundaryfaces, length(dims))
     gotomatch(f, r"boundaryField")
     while !eof(f)
         line = readline(f)
@@ -308,7 +321,7 @@ function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::
                 # go to next line and parse the () part. Parse all components
                 g = match(r"\(([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\)", readline(f))
                 # set all entries to the same value 
-                val =  [parse(mtype, g[i]) for i in 1:dimensions]
+                val =  [parse(Float64, g[d]) for d in dims]
                 for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
                     # we need to remove the number of internal faces from i
                     i_ = i - nInternalFaces
@@ -321,8 +334,8 @@ function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::
                     m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
                     # we need to remove the number of internal faces from i
                     i_ = i - nInternalFaces
-                    for j = 1:dimensions
-                        output[i_, j] = parse(mtype, m[j])
+                    for j = 1:length(dims)
+                        output[i_, j] = parse(Float64, m[dims[j]])
                     end
                 end
             else
@@ -332,7 +345,27 @@ function read_boundary_vector_field(casedir::AbstractString, f::IO, dimensions::
             end
         end
     end 
-    output
+    [slice(output, :, j) for j in 1:length(dims)]
 end
+
+function read_boundary_vector_field_binary(casedir::AbstractString, f::IO, dimensions::Integer)
+end
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Functions to read OpenFOAM scalar field files
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+function read_scalar_field(filename::AbstractString)
+end
+
+function read_internal_scalar_field_ascii(f::IO)
+    gotomatch(f, r"internalField")
+    nlines = parse(Int, readline(f)); readline(f)
+    mtype[parse(mtype, readline(f)) for i in 1:nlines]
+end
+
+function read_internal_scalar_field_binary(f::IO)
+end
+
 
 end
