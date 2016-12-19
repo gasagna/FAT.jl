@@ -58,6 +58,12 @@ function fileformat(filename::AbstractString)
     end
 end
 
+function fileformat(f::IO)
+    m = matchall(r"binary|ascii", matchingline(f, r"format"))
+    length(m) == 0 && error("no suitable format found in $filename")
+    return m[1]
+end
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Functions to read OpenFOAM mesh files
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -248,7 +254,7 @@ end
 
     `dims` is a tuple with the dimensions that will be read. 
 """
-function read_vector_field(filename::AbstractString, dims::Tuple{Vararg{Int}})
+function read_vector_field(casedir::AbstractString, filename::AbstractString, dims::Tuple{Vararg{Int}})
     open(filename, "r") do f
         # Parse file format. Raises an error if not ascii or binary
         format = fileformat(f) 
@@ -261,11 +267,11 @@ function read_vector_field(filename::AbstractString, dims::Tuple{Vararg{Int}})
         # for the overall performance.
         format == "binary" && 
             return (read_internal_vector_field_binary(f, dims),
-                    read_boundary_vector_field_binary(f, dims))
+                    read_boundary_vector_field_binary(casedir, f, dims))
         
         format == "ascii" && 
             return (read_internal_vector_field_ascii(f, dims),
-                    read_boundary_vector_field_ascii(f, dims))
+                    read_boundary_vector_field_ascii(casedir, f, dims))
 
     end
 end
