@@ -184,8 +184,8 @@ end
 
 # also define methods such as read_owner_binary, ...
 for fmt in [:_ascii, :_binary], filename in ["owner", "neighbour"]
-    @eval $(symbol(:read_, filename, fmt))(casedir) = 
-        $(symbol(:read_on, fmt))(casedir, $filename)
+    @eval $(Symbol(:read_, filename, fmt))(casedir) = 
+        $(Symbol(:read_on, fmt))(casedir, $filename)
 end
 
 # Generic functions that are called in mesh.jl and does dispatch, 
@@ -202,7 +202,7 @@ end
 """
 function reader(casedir::AbstractString, filename::AbstractString, args...)
     fmt = fileformat(joinpath(casedir, "constant/polyMesh/$filename"))
-    fname = symbol("read_", filename, "_", fmt) # define function name
+    fname = Symbol("read_", filename, "_", fmt) # define function name
     @eval $fname($casedir, $args...)
 end
       
@@ -235,7 +235,7 @@ function read_boundary(casedir::AbstractString)
     while !eof(f)
         line = readline(f)
         if is_patch_name(line)
-            patchname = symbol(strip(line))
+            patchname = Symbol(strip(line))
             isempty = contains(matchingline(f, r"type"), "empty")
             nfaces = parse(UInt32, split(strip(matchingline(f, r"nFaces"), [' ', ';', '\n']))[2])
             startface = parse(UInt32, split(strip(matchingline(f, r"startFace"), [' ', ';', '\n']))[2])
@@ -315,7 +315,7 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
         line = readline(f)
         # go to a patch name
         if is_patch_name(line)
-            patchname = symbol(strip(line))
+            patchname = Symbol(strip(line))
             _, patchtype = split(strip(matchingline(f, r"type"), [' ', ';', '\n']))
             # number of faces in the patch. See the `read_boundary` function above.
             n = Int(patches[patchname][2])
