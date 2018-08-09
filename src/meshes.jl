@@ -67,13 +67,13 @@ include("patches.jl")
     ncentre : neighbour cell centre   
     fsvec   : face surface vector  
 """
-function interpolationWeight{T<:Real}(fcentre::Point{T}, 
-                                      ocentre::Point{T}, 
-                                      ncentre::Point{T}, 
-                                      fsvec::Point{T})
+function interpolationWeight(fcentre::Point{T}, 
+                             ocentre::Point{T}, 
+                             ncentre::Point{T}, 
+                               fsvec::Point{T}) where {T}
     down = (fcentre - ocentre)*fsvec
     dnei = (ncentre - fcentre)*fsvec 
-    down/(down+dnei)
+    return down/(down+dnei)
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~
