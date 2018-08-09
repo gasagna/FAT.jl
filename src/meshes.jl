@@ -308,8 +308,8 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     end
 
     # create a dict of patches
-    patches = (Symbol=>Patch)[k => Patch(k, v...) 
-                              for (k, v) in read_boundary(casedir)]
+    patches = Dict{Symbol, Patch}(k => Patch(k, v...) 
+                              for (k, v) in read_boundary(casedir))
     return Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end

@@ -35,7 +35,7 @@ for casedir in ["./ldc_test_binary", "./ldc_test_ascii"]
 
     # all cells should have equal volume. We round here because of finite 
     # precision arithmetic when loading the data files and in the computations
-    @test all(round(m.cvolumes, 6) .== 1.0/400)
+    @test all(round.(m.cvolumes, 6) .== 1.0/400)
 
     # test owner ID is always lower then neighbour ID
     fo = faceownerID(m)
