@@ -99,7 +99,7 @@ end
                      those on empty patches
     ninternalfaces : the total number of internal faces
 """
-type Mesh{T}
+struct Mesh{T}
     points::Vector{Point{T}}
     fsvecs::Vector{Point{T}}
     fcentres::Vector{Point{T}}
@@ -111,8 +111,8 @@ type Mesh{T}
     αs::Vector{T}
     nboundaryfaces::Int
     ninternalfaces::Int
-    function Mesh(points, fsvecs, fcentres, fowners, fneighs, 
-                  cvolumes, ccentres, patches)
+    function Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
+                     cvolumes, ccentres, patches) where {T}
         # number of boundary faces
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
         # the remaining are internal faces, for which we need an α
@@ -124,15 +124,15 @@ type Mesh{T}
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
         end
-        new(points, fsvecs, fcentres, fowners, fneighs, cvolumes, 
+        new{T}(points, fsvecs, fcentres, fowners, fneighs, cvolumes, 
             ccentres, patches, αs, nboundaryfaces, ninternalfaces)
     end
 end
 
 # data type of the mesh points, areas, volumes, ...
-eltype{T}(::Mesh{T}) = T
+Base.eltype(::Mesh{T}) where {T} = T
 
-function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
+function Base.show(io::IO, mesh::Mesh; gap::AbstractString=" ")
     print(io, "Mesh object \n")
     print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
     print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
@@ -160,7 +160,7 @@ ncells(m::Mesh) = length(m.cvolumes)
 cellvolumes(m::Mesh) = m.cvolumes
 
 " Get `dir` coordinates of cell centres "
-function cellcentres{T}(m::Mesh{T}, dir::Symbol)
+function cellcentres(m::Mesh{T}, dir::Symbol) where {T}
     out = Vector{T}(ncells(m))
     cc = m.ccentres
     for i in 1:length(out)
@@ -231,25 +231,25 @@ points(m::Mesh) = m.points
               volumes, ...
 
 """
-function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
+function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
     # create vector of mesh points. It he
-    points_data = reader(casedir, "points", mtype)::Vector{NTuple{3, mtype}}
-    points = Point{mtype}[Point(el...) for el in points_data]
+    points_data = reader(casedir, "points", T)::Vector{NTuple{3, T}}
+    points = Point{T}[Point(el...) for el in points_data]
     
     # read face information
     faces_data = reader(casedir, "faces")::HVector{UInt32, UInt32}
     local nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
-    fcentres = Vector{Point{mtype}}(nfaces)
-    fsvecs   = Vector{Point{mtype}}(nfaces)
-    fareas   = Vector{mtype}(nfaces)
+    fcentres = Vector{Point{T}}(nfaces)
+    fsvecs   = Vector{Point{T}}(nfaces)
+    fareas   = Vector{T}(nfaces)
 
     # Temporary vector for storing points in a faces
-    pts = Vector{Point{mtype}}(10)
+    pts = Vector{Point{T}}(10)
 
     # Now build face properties 
     for faceID = 1:nfaces
@@ -274,8 +274,8 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     local ncells = max(maximum(fowners), maximum(fneighs))
 
     # will construct this as well
-    ccentres = Vector{Point{mtype}}(ncells)  
-    cvolumes = Vector{mtype}(ncells) 
+    ccentres = Vector{Point{T}}(ncells)  
+    cvolumes = Vector{T}(ncells) 
 
     #=
        Read `owner` and `neighbour` files to obtain a vector of vectors, 
@@ -293,8 +293,8 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     end
 
     # Temporaries for constructing the cell information
-    areas = Vector{mtype}(10)
-    centres = Vector{Point{mtype}}(10)
+    areas = Vector{T}(10)
+    centres = Vector{Point{T}}(10)
 
     # Now construct cell information
     for (cellID, faceIDs) in enumerate(data)  # for each cell
@@ -310,7 +310,7 @@ function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
     # create a dict of patches
     patches = (Symbol=>Patch)[k => Patch(k, v...) 
                               for (k, v) in read_boundary(casedir)]
-    return Mesh{mtype}(points, fsvecs, fcentres, fowners, fneighs, 
+    return Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
 

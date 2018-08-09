@@ -3,8 +3,7 @@
 # ------------------------------------------------------------------- #
 module Fields
 
-import Base: call, 
-             ==,
+import Base: ==,
              *, 
              /, 
              +,
@@ -46,9 +45,9 @@ export AbstractField,
     M : the type of Mesh
 
 """
-abstract AbstractField{D, T<:Real, M<:Mesh}
+abstract type AbstractField{D, T<:Real, M<:Mesh} end
 
-function show(io::IO, u::AbstractField)
+function Base.show(io::IO, u::AbstractField)
     print(io, "$(typeof(u)) object at $(object_id(u))\n")
     print(io, "  ~ Spatial dimensions : $(ndims(u))\n")
     print(io, "  ~ Mesh information:\n")
@@ -70,7 +69,7 @@ end
     boundaryField : a vector, containing the values of boundary faces
              mesh : the mesh
 """
-type ScalarField{D, T, M} <: AbstractField{D, T, M}
+struct ScalarField{D, T, M} <: AbstractField{D, T, M}
     internalField::Vector{T}
     boundaryField::Vector{T}
     mesh::M
@@ -78,11 +77,11 @@ type ScalarField{D, T, M} <: AbstractField{D, T, M}
     # the input arguments so D must be always specified. FIXME. WONTFIX
 end
 
-function ScalarField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64)
+function ScalarField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real}
     D in [2, 3] || error("`D` must be either 2 or 3")
-    ScalarField{D, dtype, typeof(mesh)}(Vector{dtype}(ncells(mesh)), 
-                                        Vector{dtype}(nboundaryfaces(mesh)), 
-                                        mesh)
+    ScalarField{D, T, typeof(mesh)}(Vector{T}(ncells(mesh)), 
+                                    Vector{T}(nboundaryfaces(mesh)), 
+                                    mesh)
 end
 
 """ Type representing vector fields, e.g. velocity or vorticity.
@@ -96,16 +95,16 @@ end
     scalars : a tuple of D ScalarField objects
        mesh : the mesh
 """
-type VectorField{D, T, M} <: AbstractField{D, T, M}
+struct VectorField{D, T, M} <: AbstractField{D, T, M}
     scalars::NTuple{D, ScalarField{D, T, M}}
     mesh::M
 end
 
-VectorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
-    VectorField(ntuple(i->ScalarField(mesh, D, dtype), D), mesh)
+VectorField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real} =
+    VectorField(ntuple(i->ScalarField(mesh, D, T), D), mesh)
 
 # add syntax such as u[1] or u[:x]
-@inline function getindex{D}(u::VectorField{D}, i::Union{Integer, Symbol}) 
+@inline function Base.getindex(u::VectorField{D}, i::Union{Integer, Symbol}) where {D}
     D == 3 && (i == 3 || i == :w || i == :W || i == :z) && return u.scalars[3]
               (i == 2 || i == :v || i == :V || i == :y) && return u.scalars[2]
               (i == 1 || i == :u || i == :U || i == :x) && return u.scalars[1]
@@ -123,16 +122,16 @@ end
     vectors : a tuple of D VectorField objects
        mesh : the mesh
 """
-type TensorField{D, T, M} <: AbstractField{D, T, M}
+struct TensorField{D, T, M} <: AbstractField{D, T, M}
     vectors::NTuple{D, VectorField{D, T, M}}
     mesh::M
 end
 
-TensorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
-    TensorField(ntuple(i->VectorField(mesh, D, dtype), D), mesh)
+TensorField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real} =
+    TensorField(ntuple(i->VectorField(mesh, D, T), D), mesh)
 
 # add syntax such as u[1] or u[:x]
-@inline function getindex{D}(u::TensorField{D}, i::Union{Integer, Symbol}) 
+@inline function Base.getindex(u::TensorField{D}, i::Union{Integer, Symbol}) where {D}
     D == 3 && (i == 3 || i == :w || i == :W || i == :z) && return u.vectors[3]
               (i == 2 || i == :v || i == :V || i == :y) && return u.vectors[2]
               (i == 1 || i == :u || i == :U || i == :x) && return u.vectors[1]
@@ -140,51 +139,56 @@ TensorField{T<:Real}(mesh::Mesh, D::Integer, dtype::Type{T}=Float64) =
 end
 
 # add syntax such as u[1] or u[:x]
-@inline getindex{D}(u::TensorField{D}, 
-                    i::Union{Integer, Symbol},
-                    j::Union{Integer, Symbol}) = u[i][j]
+@inline Base.getindex(u::TensorField, 
+                      i::Union{Integer, Symbol},
+                      j::Union{Integer, Symbol}) = u[i][j]
 
 " Get the type of the field data "
-eltype{D, T}(u::AbstractField{D, T}) = T
+Base.eltype(u::AbstractField{D, T}) where {D, T} = T
 
 " Number of spatial dimensions "
-ndims{D}(u::AbstractField{D}) = D
+Base.ndims(u::AbstractField{D}) where {D} = D
 
 " Get the mesh of a field "
 mesh(u::AbstractField) = u.mesh
 
 # equality between fields
-==(u::ScalarField, v::ScalarField) = (u.internalField == v.internalField && 
-                                      u.boundaryField == v.boundaryField)
-==(u::VectorField, v::VectorField) = u.scalars == v.scalars
-==(u::TensorField, v::TensorField) = u.vectors == v.vectors
+Base.:(==)(u::ScalarField, v::ScalarField) = 
+    (u.internalField == v.internalField && u.boundaryField == v.boundaryField)
+Base.:(==)(u::VectorField, v::VectorField) = u.scalars == v.scalars
+Base.:(==)(u::TensorField, v::TensorField) = u.vectors == v.vectors
 
 # similar, fill! and zero
-similar{D, T}(u::ScalarField{D, T}) = ScalarField(mesh(u), D, T)
-similar{D, T}(u::VectorField{D, T}) = VectorField(mesh(u), D, T)
-similar{D, T}(u::TensorField{D, T}) = TensorField(mesh(u), D, T)
+Base.similar(u::ScalarField{D, T}) where {D, T} = ScalarField(mesh(u), D, T)
+Base.similar(u::VectorField{D, T}) where {D, T} = VectorField(mesh(u), D, T)
+Base.similar(u::TensorField{D, T}) where {D, T} = TensorField(mesh(u), D, T)
 
-function fill!{D, T}(u::ScalarField{D, T}, val::Real) 
+function Base.fill!(u::ScalarField, val::Real)
     fill!(u.internalField, val); fill!(u.boundaryField, val)
-    u
+    return u
 end
-zero{D, T}(u::ScalarField{D, T}) = fill!(ScalarField(mesh(u), D, T), zero(T))
 
-function fill!{D, T}(u::VectorField{D, T}, val::Real)
+Base.zero(u::ScalarField{D, T}) where {D, T} = 
+    fill!(ScalarField(mesh(u), D, T), zero(T))
+
+function Base.fill!(u::VectorField{D, T}, val::Real) where {D, T}
     for d = 1:D
         fill!(u[d], zero(T))
     end
-    u
+    return u
 end
-zero{D, T}(u::VectorField{D, T}) = fill!(VectorField(mesh(u), D, T), zero(T))
 
-function fill!{D, T}(u::TensorField{D, T}, val::Real)
+Base.zero(u::VectorField{D, T}) where {D, T} =
+    fill!(VectorField(mesh(u), D, T), zero(T))
+
+function Base.fill!(u::TensorField{D, T}, val::Real) where {D, T}
     for d = 1:D
         fill!(u[d], zero(T))
     end
-    u
+    return u
 end
-zero{D, T}(u::TensorField{D, T}) = fill!(TensorField(mesh(u), D, T), zero(T))
+Base.zero(u::TensorField{D, T}) where {D, T} =
+    fill!(TensorField(mesh(u), D, T), zero(T))
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -208,7 +212,7 @@ for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
               @simd for i in eachindex(a) 
                         @inbounds a[i] = $op(b[i], c[i])
                     end
-              out
+              return out
           end 
     # memory-allocating versions
     @eval $op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
@@ -228,7 +232,7 @@ function muladd!(u::ScalarField,   v::ScalarField,
     @simd for i in eachindex(a)
         @inbounds a[i] = b[i]*c[i] + d[i]
     end
-    out
+    return out
 end   
 
 # scalar - real operations
@@ -242,13 +246,13 @@ for (op, fname) in zip([:*, :/], [:mul!, :div!])
           @simd for i in eachindex(a) 
                     @inbounds a[i] = $op(b[i], v)
                 end
-          out
+          return out
       end 
     # memory-allocating versions
     @eval $op(u::ScalarField, v::Real) = $fname(u, v, similar(u))
 end
 # only multiplication is symmetric
-*(v::Real, u::ScalarField) = u*v
+Base.:*(v::Real, u::ScalarField) = u*v
 mul!(v::Real, u::ScalarField, out::ScalarField) = mul!(u, v, out)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,13 +261,13 @@ mul!(v::Real, u::ScalarField, out::ScalarField) = mul!(u, v, out)
 # vector - vector
 for (op, fname) in zip([:-, :+], [:sub!, :add!])
     # in-place versions
-    @eval function $fname{D}(  u::VectorField{D}, 
-                               v::VectorField{D}, 
-                             out::VectorField{D})
+    @eval function $fname(  u::VectorField{D}, 
+                            v::VectorField{D}, 
+                          out::VectorField{D}) where {D}
               for d in 1:D 
                   $fname(u[d], v[d], out[d])
               end
-              out
+              return out
           end 
     # memory allocating versions
     @eval $op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
@@ -275,13 +279,13 @@ for (op, fname) in zip([:*, :/], [:mul!, :div!])
              for d in 1:D
                  $fname(u[d], v, out[d])
              end
-             out
+             return out
           end 
     # memory allocating versions
     @eval $op(u::VectorField, v::Real) = $fname(u, v, similar(u)) 
 end
 # only multiplication is symmetric
-*(v::Real, u::VectorField) = u*v
+Base.:*(v::Real, u::VectorField) = u*v
 mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
 
 """ Computes the quantity (u⋅∇)v - in-place.
@@ -293,9 +297,9 @@ mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
     out[2] = u∂v/∂x + v*∂v/∂y + w*∂v/∂z
     out[3] = u∂w/∂x + v*∂w/∂y + w*∂w/∂z
 """
-function dotgrad!{D, T}( u::VectorField{D, T}, 
-                        ∇v::TensorField{D, T}, 
-                       out::VectorField{D, T}) 
+function dotgrad!( u::VectorField{D, T}, 
+                  ∇v::TensorField{D, T}, 
+                 out::VectorField{D, T}) where {D, T}
     # set to zero the output
     fill!(out, zero(T))
     for di = 1:D
@@ -303,7 +307,7 @@ function dotgrad!{D, T}( u::VectorField{D, T},
             muladd!(u[dj], ∇v[di, dj], out[di], out[di])
         end
     end
-    out
+    return out
 end
 # memory allocating version
 dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
@@ -313,8 +317,8 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~ Inner products, norms, and integrals ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
-@generated function inner{D, T, M}(u::VectorField{D, T, M}, 
-                                   v::VectorField{D, T, M})
+@generated function inner(u::VectorField{D, T, M}, 
+                          v::VectorField{D, T, M}) where {D, T, M}
   # setup variables
     expr = quote
         I = zero(T)
@@ -338,7 +342,7 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
     # now push the whole loop to expr and return 
     push!(expr.args, loop)
     push!(expr.args, :(return I))
-    expr
+    return expr
 end
 
 """ Inner product between two scalar fields. This is 
@@ -346,7 +350,7 @@ end
     is used for computing the integral of the product
     of two vorticity fields in 2D.
 """
-function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
+function inner(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T, M}
     I = zero(T)
     m = mesh(u)
     cvolumes_ = m.cvolumes
@@ -355,11 +359,11 @@ function inner{D, T, M}(u::ScalarField{D, T, M}, v::ScalarField{D, T, M})
     @simd for i = 1:ncells(m)
         @inbounds I += ui_[i]*vi_[i]*cvolumes_[i]
     end
-    I
+    return I
 end
 
 """ L2 norm of vector or scalar field """
-norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
+Base.norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
 
 """ Compute partial derivative of `u` with respect to coordinate `dir`.
     
@@ -376,17 +380,17 @@ norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
     to the 'Gauss linear' gradScheme and to the 'linear' interpolationScheme 
     in OpenFOAM.
 """
-function der!{D, T}(u::ScalarField{D, T}, 
-                    out::ScalarField{D, T}, 
-                    dir::Integer)
+function der!(  u::ScalarField{D, T}, 
+              out::ScalarField{D, T}, 
+               dir::Integer) where {D, T}
     # for 2D simulations we cannot compute the gradient with respect 
     # to the third direction, it does not make sense to do it
     D == 2 && dir == 3 && error("Cannot compute partial derivative " *
                                 "with respect to z for 2D field") 
-    out.internalField[:] = zero(T)
-    out.boundaryField[:] = zero(T)
+    out.internalField .= zero(T)
+    out.boundaryField .= zero(T)
 
-    # need to get these fields out of the loop for better efficiency
+    # aliases
     m = u.mesh
     αs = m.αs
     out_ = out.internalField
@@ -427,30 +431,30 @@ function der!{D, T}(u::ScalarField{D, T},
     # FIXME: now we should fill the boundary field of the derivative 
     # either by interpolation or using the boundary conditions. This
     # requires some thoughts and programming.
-    out
+    return out
 end
 
 """ Compute gradient of `u` and write in `∇u`. """
-function grad!{D}(u::VectorField{D}, ∇u::TensorField{D})
+function grad!(u::VectorField{D}, ∇u::TensorField{D}) where {D}
     for d = 1:D
         grad!(u[d], ∇u[d])
     end 
-    ∇u
+    return ∇u
 end
                         
 """ Compute gradient of `u` and write in `∇u`. """
-function grad!{D}(u::ScalarField{D}, ∇u::VectorField{D})
+function grad!(u::ScalarField{D}, ∇u::VectorField{D}) where {D}
     for d = 1:D
         der!(u, ∇u[d], d)
     end 
-    ∇u
+    return ∇u
 end
 
 """ Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as storage. """
 function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
     der!(u[2], ω, 1)
     der!(u[1], tmp, 2)
-    sub!(ω, tmp, ω)
+    return sub!(ω, tmp, ω)
 end
 
 # versions of the above which allocate the output
@@ -462,12 +466,12 @@ grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
 
 # --- A few convenience functions ----
 """ Compute average of the fields in `us`. """
-function mean{T<:AbstractField}(us::AbstractVector{T})
+function mean(us::AbstractVector{T}) where {T<:AbstractField}
     m = zero(us[1])
     for i = 1:length(us)
         add!(m, us[i], m)
     end
-    mul!(m, 1.0/length(us), m)
+    return mul!(m, 1.0/length(us), m)
 end
 
 """ Compute projections, (inner product), of each `VectorField` of `us` onto 
@@ -479,10 +483,10 @@ end
   subtracted from each `VectorField` in `us` before projection.
 
 """
-function projections{T<:VectorField}(us::AbstractVector{T}, 
-                                     uis::AbstractVector{T};
-                                     bias::Union{Bool, T}=false,
-                                     verbose::Bool=true)
+function projections( us::AbstractVector{T}, 
+                     uis::AbstractVector{T};
+                    bias::Union{Bool, T}=false,
+                 verbose::Bool=true) where {T<:VectorField}
     M = length(us)
     N = length(uis)
     a = zeros(eltype(uis[1]), M, N)
@@ -506,7 +510,7 @@ function projections{T<:VectorField}(us::AbstractVector{T},
               ": done $(round(100*i/M))%"); flush(STDOUT)
         end
     end
-    a
+    return a
 end
 
 end
