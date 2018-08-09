@@ -17,7 +17,7 @@
         If this was not specified in the type parameter we would not 
         know the return type and we would have bad performance.
 """
-type FieldsIterator{F<:AbstractField} <: AbstractVector{F}
+struct FieldsIterator{F<:AbstractField, R} <: AbstractVector{F}
     sim::SimulationData
     var::Symbol
     ts::Vector{Float64}
@@ -30,31 +30,13 @@ type FieldsIterator{F<:AbstractField} <: AbstractVector{F}
     end
 end
 
+fields(sim::SimulationData, f::VectorFieldIterator) = 
+    FieldsIterator(sim, f.field, times(sim))
+
 " Get the times at which snapshots will be given. "
 times(fs::FieldsIterator) = fs.ts
 
-# implement array interface for FieldsIterator type, see 
-# http://docs.julialang.org/en/release-0.4/manual/
-# interfaces/#abstract-arrays
-getindex(fs::FieldsIterator, i::Int) = 
-    load_snapshot(fs.sim, fs.ts[i], Val{fs.var})
-linearindexing(::Type{FieldsIterator}) = LinearFast()
-size(fs::FieldsIterator) = length(fs.ts,)
-length(fs::FieldsIterator) = length(fs.ts)
-eltype{F}(fs::FieldsIterator{F}) = F
-
-for (fname, ft) in zip([:(:U), :(:W)], 
-        [:VectorField, :VectorField])
-    @eval begin 
-        fields(sim::SimulationData, ::Type{Val{$fname}}) = 
-            FieldsIterator{$ft{ndims(sim), 
-                           ftype(sim), 
-                           typeof(mesh(sim))}}(sim, $fname, sim.t)
-        fields(sim::SimulationData, 
-                  ::Type{Val{$fname}}, 
-                ts::AbstractVector) = 
-            FieldsIterator{$ft{ndims(sim), 
-                           ftype(sim), 
-                           typeof(mesh(sim))}}(sim, $fname, ts)
-    end
-end
+# Array interface
+Base.size(fs::FieldsIterator) = length(fs.ts,)
+Base.getindex(fs::FieldsIterator{<:VectorField}, i::Int) = 
+    load_snapshot_vector(fs.sim, fs.ts[i], fs.var)
