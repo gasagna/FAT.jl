@@ -1,7 +1,6 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-isdefined(Base, :__precompile__) && __precompile__(true)
 
 module FAT
 
@@ -11,14 +10,14 @@ module FAT
 include("constants.jl")
 include("ofio.jl")
 include("meshes.jl")
-include("utils.jl")
+# include("utils.jl")
 include("field.jl")
-include("pod.jl")
-include("simulations.jl")
-include("sparse.jl")
-include("galerkin.jl")
+# include("pod.jl")
+# include("simulations.jl")
+# include("sparse.jl")
+# include("galerkin.jl")
 
-using .Constants, .Meshes, .Utils, .Fields, .Simulations, .OFIO, .POD, .Sparse, .Galerkin
+using .Constants, .Meshes, .Fields #, .Simulations, .OFIO, .POD, .Sparse, .Galerkin
 
 
 end
