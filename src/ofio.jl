@@ -358,21 +358,4 @@ end
 function read_boundary_vector_field_binary(casedir::AbstractString, f::IO, dimensions::Integer)
 end
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Functions to read OpenFOAM scalar field files
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-function read_scalar_field(filename::AbstractString)
-end
-
-function read_internal_scalar_field_ascii(f::IO)
-    gotomatch(f, r"internalField")
-    nlines = parse(Int, readline(f)); readline(f)
-    mtype[parse(mtype, readline(f)) for i in 1:nlines]
-end
-
-function read_internal_scalar_field_binary(f::IO)
-end
-
-
 end
