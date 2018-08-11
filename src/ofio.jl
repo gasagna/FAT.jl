@@ -279,7 +279,7 @@ end
 function read_internal_vector_field_ascii(f::IO, dims::Tuple{Vararg{Int}})
     gotomatch(f, r"internalField")
     nlines = parse(Int, readline(f)); readline(f)
-    # load data into a large matrix
+    # load the desired velocity components into a large matrix
     out = zeros(nlines, length(dims))
     for i = 1:nlines
         m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
@@ -287,7 +287,8 @@ function read_internal_vector_field_ascii(f::IO, dims::Tuple{Vararg{Int}})
             out[i, j] = parse(Float64, m[dims[j]])
         end
     end
-    [slice(out, :, j) for j in 1:length(dims)]
+    # return views on this matrix
+    return [view(out, :, j) for j in 1:length(dims)]
 end
 
 function read_internal_vector_field_binary(f::IO, dims::Tuple{Vararg{Int}})
@@ -299,7 +300,7 @@ function read_internal_vector_field_binary(f::IO, dims::Tuple{Vararg{Int}})
     # read into large matrix, then split
     # TODO: have this more efficient
     out = read(f, Float64, (3, ncells))
-    [slice(out, d, :) for d in dims]
+    [view(out, d, :) for d in dims]
 end
 
 function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::Tuple{Vararg{Int}})
@@ -351,7 +352,7 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
             end
         end
     end 
-    [slice(output, :, j) for j in 1:length(dims)]
+    [view(output, :, j) for j in 1:length(dims)]
 end
 
 function read_boundary_vector_field_binary(casedir::AbstractString, f::IO, dimensions::Integer)
