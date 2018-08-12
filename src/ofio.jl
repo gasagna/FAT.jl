@@ -325,7 +325,7 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
             if patchtype == "empty"
                 nothing 
             # the easiest case to deal with, when velocity has a fixed value
-            elseif patchtype == "fixedValue"
+            elseif patchtype in ("fixedValue", "calculated")
                 # go to next line and parse the () part. Parse all components
                 g = match(r"\(\s?([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\s?\)", readline(f))
                 # set all entries to the same value 
@@ -335,17 +335,17 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
                     i_ = i - nInternalFaces
                     output[i_, :] = val
                 end
-            elseif patchtype == "calculated"
-                # read number of lines that need to be read. Note that the ( is skipped
-                nlines = goToGoodLine(f)
-                for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
-                    m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
-                    # we need to remove the number of internal faces from i
-                    i_ = i - nInternalFaces
-                    for j = 1:length(dims)
-                        output[i_, j] = parse(Float64, m[dims[j]])
-                    end
-                end
+            # elseif patchtype == "calculated"
+            #     # read number of lines that need to be read. Note that the ( is skipped
+            #     nlines = goToGoodLine(f)
+            #     for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
+            #         m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
+            #         # we need to remove the number of internal faces from i
+            #         i_ = i - nInternalFaces
+            #         for j = 1:length(dims)
+            #             output[i_, j] = parse(Float64, m[dims[j]])
+            #         end
+            #     end
             else
                 # if we do not know the type of the patch we raise an error
                 #error("patchtype $patchtype not understood")
