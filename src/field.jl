@@ -373,7 +373,7 @@ function der!(  u::ScalarField{D, T},
     end
 
     # contributions from the internal faces
-    @simd for faceID in facesIDs(m)
+    @simd for faceID in 1:ninternalfaces(m)
         @inbounds  begin 
             foi = fowners_[faceID]
             fni = fneighs_[faceID]
