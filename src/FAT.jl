@@ -5,7 +5,6 @@
 module FAT
 
 # You need to have these modules
-# - JLD
 # - DataStructures
 
 include("constants.jl")
