@@ -201,7 +201,7 @@ for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
               return out
           end 
     # memory-allocating versions
-    @eval $op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
+    @eval Base.$op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
 end   
 
 # Compute out = u*v + w. This is used in the 
@@ -235,7 +235,7 @@ for (op, fname) in zip([:*, :/], [:mul!, :div!])
           return out
       end 
     # memory-allocating versions
-    @eval $op(u::ScalarField, v::Real) = $fname(u, v, similar(u))
+    @eval Base.$op(u::ScalarField, v::Real) = $fname(u, v, similar(u))
 end
 # only multiplication is symmetric
 Base.:*(v::Real, u::ScalarField) = u*v
@@ -256,7 +256,7 @@ for (op, fname) in zip([:-, :+], [:sub!, :add!])
               return out
           end 
     # memory allocating versions
-    @eval $op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
+    @eval Base.$op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
 end
 
 # vector - real
@@ -268,7 +268,7 @@ for (op, fname) in zip([:*, :/], [:mul!, :div!])
              return out
           end 
     # memory allocating versions
-    @eval $op(u::VectorField, v::Real) = $fname(u, v, similar(u)) 
+    @eval Base.$op(u::VectorField, v::Real) = $fname(u, v, similar(u)) 
 end
 # only multiplication is symmetric
 Base.:*(v::Real, u::VectorField) = u*v
