@@ -3,13 +3,14 @@
 # ------------------------------------------------------------------- #
 module Galerkin
 
-export GalerkinModel, tofile, fromfile
+export GalerkinModel
+       # tofile,
+       # fromfile
 
-import JLD: save,
-            load
+# import JLD: save,
+#             load
 
-import FAT.Fields: inner,
-                   ScalarField,
+import FAT.Fields: ScalarField,
                    VectorField,
                    TensorField,
                    curl,
@@ -30,12 +31,13 @@ struct GalerkinModel
     end
 end
 
-# save model to a .jld file
-tofile(filename::AbstractString, sys::GalerkinModel) = 
-    save(filename, "sys", sys)
+# JLD is too slow to load, removing this
+# # save model to a .jld file
+# tofile(filename::AbstractString, sys::GalerkinModel) = 
+#     save(filename, "sys", sys)
 
-# load model from a .jld file
-fromfile(filename::AbstractString) = load(filename, "sys")
+# # load model from a .jld file
+# fromfile(filename::AbstractString) = load(filename, "sys")
 
 """ Build a Galerkin model from the basis functions `us` and base 
     flow `u0`, for Reynolds number `Re`.
