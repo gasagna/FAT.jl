@@ -265,9 +265,10 @@ function read_vector_field(casedir::AbstractString, filename::AbstractString, di
         # would need to do dynamic dispatch at runtime. The if clause
         # here leads to faster code, although it does not really matter
         # for the overall performance.
+        # NOTE: we assume the boundary field can be read in ascii format!
         format == "binary" && 
             return (read_internal_vector_field_binary(f, dims),
-                    read_boundary_vector_field_binary(casedir, f, dims))
+                    read_boundary_vector_field_ascii(casedir, f, dims))
         
         format == "ascii" && 
             return (read_internal_vector_field_ascii(f, dims),
@@ -353,9 +354,6 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
         end
     end 
     [view(output, :, j) for j in 1:length(dims)]
-end
-
-function read_boundary_vector_field_binary(casedir::AbstractString, f::IO, dimensions::Integer)
 end
 
 end
