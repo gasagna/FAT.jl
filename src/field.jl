@@ -317,33 +317,8 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~ Inner products, norms, and integrals ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
-@generated function inner(u::VectorField{D, T, M}, 
-                          v::VectorField{D, T, M}) where {D, T, M}
-  # setup variables
-    expr = quote
-        I = zero(T)
-        m = mesh(u)
-        cvolumes_ = m.cvolumes
-    end
-    for d = 1:D
-        ui, vi = symbol("u$d"), symbol("v$d")
-        push!(expr.args, :($(ui) = u[$(d)].internalField))
-        push!(expr.args, :($(vi) = v[$(d)].internalField))
-    end
-    # create loop part
-    loop = :(@simd for i = 1:ncells(m) end)
-    loopbody = loop.args[2].args[2].args
-    push!(loopbody, :(@inbounds x = u1[i]*v1[i]))
-    for d = 2:D
-        ui, vi = symbol("u$d"), symbol("v$d")
-        push!(loopbody, :(@inbounds x+= $(ui)[i] * $(vi)[i]))
-    end
-    push!(loopbody, :(@inbounds I += x*cvolumes_[i]))
-    # now push the whole loop to expr and return 
-    push!(expr.args, loop)
-    push!(expr.args, :(return I))
-    return expr
-end
+inner(u::VectorField{D, T, M}, v::VectorField{D, T, M}) where {D, T, M} =
+    return sum(inner(u.scalars[d], v.scalars[d]) for d = 1:D)
 
 """ Inner product between two scalar fields. This is 
     the integral of the product of the two fields. This
