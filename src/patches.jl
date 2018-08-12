@@ -6,7 +6,7 @@ import Base: isempty
 # A patch is just an index of the faces that form that patch, 
 # plus its name and whether it is an empty patch or not.
 # The OpenFoam notation of the `boundary` files is used here.
-immutable Patch
+struct Patch
     name::Symbol
     isempty::Bool
     nfaces::UInt32

@@ -17,21 +17,22 @@
                      Fluid Dynamics: An Advanced Introduction with 
                      OpenFOAM® and Matlab
 """
-function _centreAndVolume{T, S<:Point}(areas::Tuple{Vararg{T}}, 
-                                       centres::Tuple{Vararg{S}}) 
+function _centreAndVolume{T, S<:Point}(areas::Vector{T}, 
+                                       centres::Vector{S}, 
+                                       N::Integer) 
     # estimated cell centre, based on average face centre
     cEst = Point(zero(T), zero(T), zero(T))
-    for centre in centres
-        cEst += centre
+    for i = 1:N
+        cEst += centres[i]
     end
-    cEst /= length(centres)
+    cEst /= N
 
     # now compute volume weighted average of pyramid centroids
     vol = zero(T)
     ctr = Point(zero(T), zero(T), zero(T))
-    for (centre, area) in zip(centres, areas)
-        pyrvol = area*distance(centre, cEst)
-        pyrctr = centre*3/4 + cEst*1/4
+    for i = 1:N
+        pyrvol = areas[i]*distance(centres[i], cEst)
+        pyrctr = centres[i]*3/4 + cEst*1/4
         vol += pyrvol
         ctr += pyrctr*pyrvol
     end

@@ -8,8 +8,6 @@ export GalerkinModel, tofile, fromfile
 import JLD: save,
             load
 
-import Base: call
-
 import FAT.Fields: inner,
                    ScalarField,
                    VectorField,
@@ -19,7 +17,7 @@ import FAT.Fields: inner,
                    dotgrad!,
                    mesh
 
-type GalerkinModel
+struct GalerkinModel
     c::Array{Float64, 1}
     L::Array{Float64, 2}
     Q::Array{Float64, 3}
@@ -125,7 +123,7 @@ end
 
 
 # Galerkin models are callable objects.
-function call(sys::GalerkinModel, xdot::AbstractVector, x::AbstractVector)
+function (::GalerkinModel)(t::Real, x::AbstractVector, xdot::AbstractVector)
     N = length(x)
     @inbounds begin 
         for i = 1:N

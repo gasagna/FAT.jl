@@ -4,6 +4,7 @@
 module Meshes
 
 import DataStructures: DefaultDict
+import HeterogeneousVectors: HVector
 
 import Base: start,
              next,
@@ -66,13 +67,13 @@ include("patches.jl")
     ncentre : neighbour cell centre   
     fsvec   : face surface vector  
 """
-function interpolationWeight{T<:Real}(fcentre::Point{T}, 
-                                      ocentre::Point{T}, 
-                                      ncentre::Point{T}, 
-                                      fsvec::Point{T})
+function interpolationWeight(fcentre::Point{T}, 
+                             ocentre::Point{T}, 
+                             ncentre::Point{T}, 
+                               fsvec::Point{T}) where {T}
     down = (fcentre - ocentre)*fsvec
     dnei = (ncentre - fcentre)*fsvec 
-    down/(down+dnei)
+    return down/(down+dnei)
 end
 
 # ~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,7 +99,7 @@ end
                      those on empty patches
     ninternalfaces : the total number of internal faces
 """
-type Mesh{T}
+struct Mesh{T}
     points::Vector{Point{T}}
     fsvecs::Vector{Point{T}}
     fcentres::Vector{Point{T}}
@@ -110,8 +111,8 @@ type Mesh{T}
     αs::Vector{T}
     nboundaryfaces::Int
     ninternalfaces::Int
-    function Mesh(points, fsvecs, fcentres, fowners, fneighs, 
-                  cvolumes, ccentres, patches)
+    function Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
+                     cvolumes, ccentres, patches) where {T}
         # number of boundary faces
         nboundaryfaces = sum([nfaces(v) for (p, v) in patches])
         # the remaining are internal faces, for which we need an α
@@ -123,16 +124,16 @@ type Mesh{T}
                                         ccentres[fowners[i]], 
                                         ccentres[fneighs[i]], fsvecs[i])
         end
-        new(points, fsvecs, fcentres, fowners, fneighs, cvolumes, 
+        new{T}(points, fsvecs, fcentres, fowners, fneighs, cvolumes, 
             ccentres, patches, αs, nboundaryfaces, ninternalfaces)
     end
 end
 
 # data type of the mesh points, areas, volumes, ...
-eltype{T}(::Mesh{T}) = T
+Base.eltype(::Mesh{T}) where {T} = T
 
-function show(io::IO, mesh::Mesh; gap::AbstractString=" ")
-    print(io, "Mesh object at $(object_id(mesh)):  \n")
+function Base.show(io::IO, mesh::Mesh; gap::AbstractString=" ")
+    print(io, "Mesh object \n")
     print(io, "$gap ~ $(ncells(mesh)) cells                 \n")
     print(io, "$gap ~ $(nfaces(mesh)) total faces           \n")
     print(io, "$gap ~ $(ninternalfaces(mesh)) internal faces\n")
@@ -159,7 +160,7 @@ ncells(m::Mesh) = length(m.cvolumes)
 cellvolumes(m::Mesh) = m.cvolumes
 
 " Get `dir` coordinates of cell centres "
-function cellcentres{T}(m::Mesh{T}, dir::Symbol)
+function cellcentres(m::Mesh{T}, dir::Symbol) where {T}
     out = Vector{T}(ncells(m))
     cc = m.ccentres
     for i in 1:length(out)
@@ -230,81 +231,86 @@ points(m::Mesh) = m.points
               volumes, ...
 
 """
-function Mesh{T<:Real}(casedir::AbstractString, mtype::Type{T}=Float64)
+function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
-    # create vector of mesh points
-    points_data = reader(casedir, "points"; mtype=mtype)
-    points = Point{mtype}[Point(el...) for el in points_data]
+    # create vector of mesh points. It he
+    points_data = reader(casedir, "points", T)::Vector{NTuple{3, T}}
+    points = Point{T}[Point(el...) for el in points_data]
     
     # read face information
-    faces_data = reader(casedir, "faces")
-    nfaces = length(faces_data)
+    faces_data = reader(casedir, "faces")::HVector{UInt32, UInt32}
+    local nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
-    fcentres = Vector{Point{mtype}}(nfaces)
-    fsvecs   = Vector{Point{mtype}}(nfaces)
-    fareas   = Vector{mtype}(nfaces)
+    fcentres = Vector{Point{T}}(nfaces)
+    fsvecs   = Vector{Point{T}}(nfaces)
+    fareas   = Vector{T}(nfaces)
 
-    # now build face properties. This loop is not type stable, as ptsID
-    # varies between a tuple of 3 or 4 or more points. So all the functions
-    # below need to have dynamic dispatch at runtime, which is also slow.       
+    # Temporary vector for storing points in a faces
+    pts = Vector{Point{T}}(10)
+
+    # Now build face properties 
     for faceID = 1:nfaces
-        # tuple of points ids making the faces
-        ptsID = faces_data[faceID]
-        # tuple of Points making the faces
-        pts = ntuple(i -> points[ptsID[i]],  length(ptsID))
+        # IDs of points making the current face
+        ptsIDs = faces_data[faceID]
+        # copy points making current face into temporary pts
+        for (i, ptsID) in enumerate(ptsIDs)
+            pts[i] = points[ptsID]
+        end
         # check for disaster
-        _inplane(pts) || error("found non planar face with ID $i")
-        fcentres[faceID] = _centre(pts)
-        fsvecs[faceID]   = _svec(pts)
-        fareas[faceID]   = norm(_svec(pts))
+        _inplane(pts, length(ptsIDs)) || error("found non planar face with ID $faceID")
+        fcentres[faceID] = _centre(pts, length(ptsIDs))
+        fsvecs[faceID]   = _svec(pts, length(ptsIDs))
+        fareas[faceID]   = norm(fsvecs[faceID])
     end
 
     # read cell owner information
-    fowners = reader(casedir, "owner")
-    fneighs = reader(casedir, "neighbour")
+    fowners = reader(casedir, "owner")::Vector{UInt32}
+    fneighs = reader(casedir, "neighbour")::Vector{UInt32}
 
     # size of mesh
     local ncells = max(maximum(fowners), maximum(fneighs))
 
     # will construct this as well
-    ccentres = Vector{Point{mtype}}(ncells)  
-    cvolumes = Vector{mtype}(ncells) 
+    ccentres = Vector{Point{T}}(ncells)  
+    cvolumes = Vector{T}(ncells) 
 
     #=
-       Read `owner` and `neighbour` files to obtain a dictionary data 
-       structure containing for each cell a list of its faces. 
-       Basically, the dictionary `data` will be such that `data[1]` 
-       contains the IDs of the faces of cell 1. Reading only the 
-       `owner` file is not enough because the dictionary `data`
-       would only contain for a given cell the IDs of the faces it 
-       owns. By reading the `neighbour` file we also add for each cell
-       the IDs of the faces it shares with a neighbour. Note we have 
-       Int as the key type and UInt32 as the value.
+       Read `owner` and `neighbour` files to obtain a vector of vectors, 
+       in which the `i`-th vector contains a list of faces forming cell `i`.
+       Reading only the `owner` file is not enough because the resulting
+       data structure would only contain, for a given cell, the IDs of the 
+       faces it owns. By reading the `neighbour` file we also add, for each 
+       cell, the IDs of the faces it shares with a neighbour.
     =#
-    data = DefaultDict(UInt32, Vector{UInt32}, Vector{UInt32})
-    for cellIDs in (fowners, fneighs)
-        for (faceID, cellID) in enumerate(cellIDs)
-            push!(data[cellID], faceID)
+    data = Vector{UInt32}[UInt32[] for i = 1:ncells]
+    for fcellIDs in (fowners, fneighs)
+        for faceID in eachindex(fcellIDs)
+            push!(data[fcellIDs[faceID]], faceID)
         end
     end
 
-    # Note that here we need to use indexing of the ccentres and cvolumes
-    # vectors instead of just push! because `data` is an unordered dictionary
-    for (cellID, faceIDs) in data
-        # tuples of faces areas and centres
-        areas   = ntuple(i -> fareas[faceIDs[i]],   length(faceIDs))
-        centres = ntuple(i -> fcentres[faceIDs[i]], length(faceIDs))
-        # perform computation
-        ccentres[cellID], cvolumes[cellID] = _centreAndVolume(areas, centres)
+    # Temporaries for constructing the cell information
+    areas = Vector{T}(10)
+    centres = Vector{Point{T}}(10)
+
+    # Now construct cell information
+    for (cellID, faceIDs) in enumerate(data)  # for each cell
+        for (i, faceID) in enumerate(faceIDs) # for each face in the cell
+            areas[i] = fareas[faceID]         # collect face area
+            centres[i] = fcentres[faceID]     # collect face centre
+        end
+        # then perform computation
+        ccentres[cellID], cvolumes[cellID] = (
+            _centreAndVolume(areas, centres, length(faceIDs)) )
     end
 
     # create a dict of patches
-    patches = (Symbol=>Patch)[k => Patch(k, v...) 
-                              for (k, v) in read_boundary(casedir)]
-    return Mesh{mtype}(points, fsvecs, fcentres, fowners, fneighs, 
+    patches = Dict{Symbol, Patch}(k => Patch(k, v...) 
+                              for (k, v) in read_boundary(casedir))
+    return Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
 

@@ -1,189 +1,135 @@
-# ------------------------------------------------------------------- #
+ # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-module Simulations
+module Simulation
 
-import Base: getindex,
-             start,
-             next,
-             done,
-             length,
-             show,
-             ndims,
-             eltype,
-             size,
-             linearindexing,
-             LinearFast,
-             close
+import DataStructures: SortedDict
 
-import HDF5: h5read,
-             HDF5File,
-             h5open,
-             attrs,
-             filename
-
-import FAT.Meshes: Mesh,
-                   ncells,
-                   nfaces,
-                   nboundaryfaces
+import FAT.Meshes: Mesh
 
 import FAT.Fields: AbstractField,
                    ScalarField,
                    VectorField,
-                   mesh,
-                   add!,
-                   mul!
+                   mesh
 
-import FAT.OFIO: iscasedir
+import FAT.OFIO: iscasedir,
+                 read_vector_field
 
 export SimulationData,
-       fields,
        times,
-       mesh
+       mesh,
+       casedir
 
-""" 
-    OpenFoam simulation data object for post-processing.
-    
-    Parameters
-    ----------
-       casedir : the OpenFoam case directory;
-         mtype : the type of the mesh points, face and cell 
-                 centres, ... Defaults to Float64;
-    ftype : the type of the field data. Defaults to Float64;
-
-"""
-type SimulationData{T<:Real}
-    mesh::Mesh{T}
-    fh::HDF5File
-    t::Vector{Float64}
-    dimensions::Int
-    ftype::Type
+# ============================================================================ #
+# SIMULATION DATA OBJECT
+# ============================================================================ #
+struct SimulationData{D,
+                      T<:Real,
+                      S<:SortedDict{Float64, String, Base.Order.ForwardOrdering}}
+    casedir::String         # path of simulation data
+       mesh::Mesh{T}        # mesh object
+       dims::NTuple{D, Int} # load velocity along these directions
+       tmap::S              # snapshot times
 end
 
-function SimulationData(casedir::AbstractString; 
-                        mtype::Type=Float64, 
-                        ftype::Type=Float64)
+# set of monotonically increasing dimensions
+const _ALLOWED_DIMENSIONS = [(1, 2, 3), (1, 2), (1, 3), (2, 3)]
+
+# constructor
+function SimulationData(casedir::AbstractString,
+                           dims::NTuple{D, Int},
+                               ::Type{T} = Float64) where {D, T}
+    # check dimensions make sense
+    dims in _ALLOWED_DIMENSIONS || 
+        throw(ArgumentError("dimensions $dims not understood"))
+
     # Check that we are in a good openfoam directory
     iscasedir(casedir) || error("$casedir does not appear to " *
                                  "be an OpenFoam case directory")
-    # check that the h5 file has been created in the casedir
-    h5path = joinpath(casedir, "data.h5")
-    ispath(h5path) || error("data.h5 not found in $(abspath(casedir)" *
-                            "). Look at FAT.Utils.OpenFoamToHDF5 to " *
-                            "create one.")
-    # open the file
-    fh = h5open(h5path)
-    # read groups, which corresponds to snapshots
-    t = sort!([parse(Float64, t) for t in names(fh)])
-    # read mesh
-    msh = Mesh(casedir, mtype)
-    SimulationData(msh, 
-                   fh, 
-                   t, 
-                   # Parse the number of dimensions of the simulation
-                   parse(Int, read(attrs(fh)["dimensions"])), 
-                   ftype)
+    
+    # read snapshots and mesh
+    tmap = _get_folders_map(casedir)
+    mesh = Mesh(casedir, T)
+
+    SimulationData{D, T, typeof(tmap)}(casedir, mesh, dims, tmap)
 end
 
-" Close hdf5 file "
-close(sim::SimulationData) = close(sim.fh)
-
-" Number of snapshots in the simulation "
-length(sim::SimulationData) = length(sim.t)
-
 " Get vector of times "
-times(sim::SimulationData) = sim.t
-
-" Number of spatial dimension of the fields "
-ndims(sim::SimulationData) = sim.dimensions
+times(sim::SimulationData) = collect(keys(sim.tmap))
 
 " Get the mesh "
 mesh(sim::SimulationData) = sim.mesh
 
-" Type of data "
-ftype(sim::SimulationData) = sim.ftype
+" Get the casedir "
+casedir(sim::SimulationData) = sim.casedir
 
 " Nice printing "
-function show(io::IO, sim::SimulationData)
-    print(io, "OpenFOAM simulation object at $(object_id(sim)): \n")
-    print(io, "  ~ data file $(abspath(filename(sim.fh)))\n")
-    print(io, "  ~ $(length(sim.t)) snapshots available, from: ")
+function Base.show(io::IO, sim::SimulationData)
+    print(io, "OpenFOAM simulation data object \n")
+    print(io, "  ~ case directory $(abspath(casedir(sim)))\n")
+    print(io, "  ~ $(length(sim.tmap)) snapshots available, from: ")
     print(io, times(sim)[1], " to ", times(sim)[end])
     print(io, "\n")
     print(io, "  ~ Mesh information:\n")
     print(io, "    ~ ")
-    show(io, mesh(sim); space="     ")
+    show(io, mesh(sim); gap="     ")
+    return nothing
 end
 
-#= Load a velocity snapshot from file.
 
-    Notes
-    -----
-    ~ We assume that it is a valid time, because this function is
-    not mean to be used directly, and we fail badly. Use the 
-    FieldsIteratorfor a general use.
-
-    ~ We have a Val{:U} argument for type stability. If we have 
-    other fields that we want to load, we define other load_snapshot 
-    methods, with different Val{Symbol} arguments, so that every 
-    method has a unique return type.
-=#
-function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:W}})
-    ts = @sprintf "%.6f" t
-    internalField = convert(Matrix{ftype(sim)}, 
-                            read(sim.fh["$ts/W/internalField"]))
-    boundaryField = convert(Matrix{ftype(sim)}, 
-                            read(sim.fh["$ts/W/boundaryField"]))
-    # Note that we take slices to avoid copying data. We could 
-    # slice the h5 datasets directly, but there is bug #267 of 
-    # HDF.jl that make slicing by column return a 
-    # Matrix and not a Vector.
-    VectorField(ntuple(i->ScalarField{ndims(sim), 
-                                      ftype(sim), 
-                                      typeof(mesh(sim))}(
-                                     slice(internalField, :, i), 
-                                     slice(boundaryField, :, i),
-                                     mesh(sim)), ndims(sim)), mesh(sim))
-end
-
-function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:U}})
-    ts = @sprintf "%.6f" t
-    internalField = convert(Matrix{ftype(sim)}, 
-                            read(sim.fh["$ts/U/internalField"]))
-    boundaryField = convert(Matrix{ftype(sim)}, 
-                            read(sim.fh["$ts/U/boundaryField"]))
-    VectorField(ntuple(i->ScalarField{ndims(sim), 
-                                      ftype(sim), 
-                                      typeof(mesh(sim))}(
-                                     slice(internalField, :, i), 
-                                     slice(boundaryField, :, i),
-                                     mesh(sim)), ndims(sim)), mesh(sim))
-end
-
-function load_snapshot(sim::SimulationData, t::Real, var::Type{Val{:ω}})
-    ts = @sprintf "%.6f" t
-    internalField = read(sim.fh["$ts/vorticity/internalField"])
-    boundaryField = read(sim.fh["$ts/vorticity/boundaryField"])
-    ScalarField{ndims(sim), 
-                ftype(sim), 
-                typeof(mesh(sim))}(internalField, 
-                                   boundaryField,
-                                   mesh(sim))
-end
-
-# custom exception when snapshot is absent
-type SnapshotError <: Exception 
+# ============================================================================ #
+# CUSTOM EXCEPTION WHEN SNAPSHOT IS NOT AVAILABLE
+# ============================================================================ #
+struct SnapshotError <: Exception 
     msg::AbstractString
 end
 
-function getindex(sim::SimulationData, t::Float64, var::Symbol) 
-    t in sim.t || throw(SnapshotError("time $t not available"))
-    return load_snapshot(sim, t, Val{var})
+
+# ============================================================================ #
+# UTILITY FUNCTIONS FOR LOADING THE DATA OR OTHER STUFF
+# ============================================================================ #
+
+# Get a dictionary of time=>folder with times and names of available snapshots. 
+# The keys (the snapshot times), are sorted in  ascending order.
+function _get_folders_map(casedir::AbstractString)
+    tmap = SortedDict{Float64, String}(Base.Order.Forward)
+    for folder in readdir(casedir)
+        # check that folder is a valid snapshot folder (parseable as a float)
+        t = tryparse(Float64, folder)
+        if !isnull(t)
+            tmap[get(t)] = folder
+        end
+    end
+    return tmap
 end
 
-function getindex(sim::SimulationData, i::Int, var::Symbol)
-    i > 0 && i <= length(sim.t) || throw(SnapshotError("invalid index $i"))
-    return load_snapshot(sim, sim.t[i], Val{var})
+# Load a velocity snapshot from file
+function _load_snapshot_vector(sim::SimulationData{D}, 
+                                 t::Real, 
+                               var::Symbol) where {D}
+    # return a valid file, or raise an error
+    filename = _get_filename(sim, t, var)
+    # read boundary and internal fields
+    intf, bndf = read_vector_field(sim.casedir, filename, sim.dims)
+    # type parameters of the vector field
+    params = length(sim.dims), Float64,  Mesh{Float64}
+    # tuple of scalar fields, each containing one component
+    scalars = ntuple(i->ScalarField{params...}(
+            intf[i], bndf[i], mesh(sim)), D)
+    # output
+    return VectorField(scalars, mesh(sim))
+end
+
+# TODO
+# function _load_snapshot_scalar(sim::SimulationData, t::Real, var::Symbol)
+# end 
+
+# Build filename to be read
+function _get_filename(sim::SimulationData, t::Real, var::Symbol)
+    t in keys(sim.tmap) || throw(SnapshotError("time $t not available"))
+    filename = joinpath(sim.casedir, sim.tmap[t], string(var))
+    ispath(filename) || throw(SnapshotError("field $var not available at time $t"))
+    return filename
 end
 
 # include FieldIterator
