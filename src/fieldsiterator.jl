@@ -35,9 +35,9 @@ end
 
 # Constructor for vector fields iterator - default loads all velocity snapshots
 vfields(sim::SimulationData{D, T},
-      field::Symbol=:U, 
-         ts::AbstractVector=times(sim)) where {D, T} = 
-    FieldsIterator{VectorField{D, T, typeof(mesh(sim))}}(sim, field, times(sim))
+      field::Symbol,
+         ts::AbstractVector) where {D, T} = 
+    FieldsIterator{VectorField{D, T, typeof(mesh(sim))}}(sim, field, ts)
 
 # TODO
 # Constructor for scalar fields iterator - default loads all scalar snapshots
