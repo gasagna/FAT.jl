@@ -1,20 +1,10 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-import Base: show,
-             norm,
-             zero,
-             cross,
-             getindex,
-             eltype,
-             +,
-             -,
-             /,
-             *,
-             ==
+import Base
+
 export Point,
        distance,
-       midpoint,
        asarray
 
 """

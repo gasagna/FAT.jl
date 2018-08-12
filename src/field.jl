@@ -3,20 +3,7 @@
 # ------------------------------------------------------------------- #
 module Fields
 
-import Base: ==,
-             *, 
-             /, 
-             +,
-             -,
-             getindex,
-             norm,
-             show,
-             eltype,
-             ndims,
-             zero,
-             mean,
-             fill!,
-             similar
+import Base
 
 using FAT.Meshes
 
@@ -441,7 +428,7 @@ grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
 
 # --- A few convenience functions ----
 """ Compute average of the fields in `us`. """
-function mean(us::AbstractVector{T}) where {T<:AbstractField}
+function Base.mean(us::AbstractVector{T}) where {T<:AbstractField}
     m = zero(us[1])
     for i = 1:length(us)
         add!(m, us[i], m)

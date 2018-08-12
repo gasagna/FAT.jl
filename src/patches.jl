@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-import Base: isempty
+import Base
 
 # A patch is just an index of the faces that form that patch, 
 # plus its name and whether it is an empty patch or not.
@@ -13,11 +13,11 @@ struct Patch
     startface::UInt32
 end
 
-show(io::IO, p::Patch) = 
+Base.show(io::IO, p::Patch) = 
     print(io, "Patch '$(patchname(p))': first face ID $(firstfaceID(p)), last face ID $(lastfaceID(p)), #faces $(nfaces(p))\n")
 
 " Is is an empty patch "
-isempty(p::Patch) = p.isempty
+Base.isempty(p::Patch) = p.isempty
 
 " Patch name "
 patchname(p::Patch) = p.name

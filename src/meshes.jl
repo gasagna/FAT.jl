@@ -6,12 +6,7 @@ module Meshes
 import DataStructures: DefaultDict
 import HeterogeneousVectors: HVector
 
-import Base: start,
-             next,
-             done,
-             length,
-             eltype,
-             show
+import Base
 
 import FAT.OFIO: reader,
                  read_boundary,
