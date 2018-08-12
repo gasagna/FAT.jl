@@ -3,14 +3,14 @@
 # ------------------------------------------------------------------- #
 module POD
 
-import FAT.Fields: inner, mul!, add!
+import FAT.Fields: mul!, add!
 
 """ Snaphot POD algorithm 
 
 
     Parameters
     ----------
-    u : a vector of objects that support an 'inner(u, v)' method
+    u : a vector of objects that support an 'dot(u, v)' method
     N : the desired number of POD modes
 """
 function snapshotPOD(u::AbstractVector, N::Integer; verbose::Bool=true)
@@ -25,7 +25,7 @@ function snapshotPOD(u::AbstractVector, N::Integer; verbose::Bool=true)
         verbose == true && print("\r Correlation matrix completed" *
               " at: $(round(100.0*i/M, 1))%"); flush(STDOUT)
         for j = i:M
-            val = convert(Float64, inner(u[i], u[j])) 
+            val = convert(Float64, dot(u[i], u[j])) 
             C[i, j] = val/M
             C[j, i] = val/M
         end

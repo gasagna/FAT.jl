@@ -11,7 +11,6 @@ export AbstractField,
        ScalarField, 
        VectorField, 
        TensorField, 
-       inner, 
        grad, 
        grad!,
        curl, 
@@ -304,15 +303,15 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~ Inner products, norms, and integrals ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
-inner(u::VectorField{D, T, M}, v::VectorField{D, T, M}) where {D, T, M} =
-    return sum(inner(u.scalars[d], v.scalars[d]) for d = 1:D)
+Base.dot(u::VectorField{D, T, M}, v::VectorField{D, T, M}) where {D, T, M} =
+    return sum(dot(u.scalars[d], v.scalars[d]) for d = 1:D)
 
 """ Inner product between two scalar fields. This is 
     the integral of the product of the two fields. This
     is used for computing the integral of the product
     of two vorticity fields in 2D.
 """
-function inner(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T, M}
+function Base.dot(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T, M}
     I = zero(T)
     m = mesh(u)
     cvolumes_ = m.cvolumes
@@ -325,7 +324,7 @@ function inner(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T, M}
 end
 
 """ L2 norm of vector or scalar field """
-Base.norm(u::Union{ScalarField, VectorField}) = sqrt(inner(u, u))
+Base.norm(u::Union{ScalarField, VectorField}) = sqrt(dot(u, u))
 
 """ Compute partial derivative of `u` with respect to coordinate `dir`.
     
@@ -436,10 +435,10 @@ function Base.mean(us::AbstractVector{T}) where {T<:AbstractField}
     return mul!(m, 1.0/length(us), m)
 end
 
-""" Compute projections, (inner product), of each `VectorField` of `us` onto 
+""" Compute projections, (dot product), of each `VectorField` of `us` onto 
   each `VectorField` in `uis`. Returns a matrix containing:
 
-  a[i, j] = inner(us[i], uis[j])
+  a[i, j] = dot(us[i], uis[j])
 
   An optional bias `m` can be given, for example the mean flow, which is 
   subtracted from each `VectorField` in `us` before projection.
@@ -458,7 +457,7 @@ function projections( us::AbstractVector{T},
         for i = 1:M
             tmp = sub!(us[i], bias, tmp)
             for j = 1:N
-                a[i, j] = inner(tmp, uis[j])
+                a[i, j] = dot(tmp, uis[j])
             end
             verbose == true && print("\r Completed" *
               ": done $(round(100*i/M))%"); flush(STDOUT)
@@ -466,7 +465,7 @@ function projections( us::AbstractVector{T},
     else 
         for i = 1:M
             for j = 1:N
-                a[i, j] = inner(us[i], uis[j])
+                a[i, j] = dot(us[i], uis[j])
             end
             verbose == true && print("\r Completed" *
               ": done $(round(100*i/M))%"); flush(STDOUT)
