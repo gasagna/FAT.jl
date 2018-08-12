@@ -1,19 +1,18 @@
 using Base.Test
 
-using FAT.Fields
-using FAT.Meshes
 using FAT.Simulation
+using FAT.Meshes
 
-casedirname = "ldc_test_ascii"
+for path in ("ldc_test_ascii", "ldc_test_binary")
+    # use a test run
+    sim = SimulationData(path, (1, 2))
 
-# use a test run
-sim = SimulationData(casedirname, (1, 2))
+    # check times
+    @test times(sim) == collect(0:10)
 
-# check times
-@test times(sim) == collect(0:10)
+    # check we return a mesh
+    @test typeof(mesh(sim)) == Mesh{Float64}
 
-# check we return a mesh
-@test typeof(mesh(sim)) == Mesh{Float64}
-
-# check casedirname
-@test casedir(sim) == casedirname
+    # check path
+    @test casedir(sim) == path
+end
