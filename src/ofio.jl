@@ -327,7 +327,7 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
             # the easiest case to deal with, when velocity has a fixed value
             elseif patchtype == "fixedValue"
                 # go to next line and parse the () part. Parse all components
-                g = match(r"\(([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\)", readline(f))
+                g = match(r"\(\s?([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+) ([-+]?[0-9]*\.?[0-9]+)\s?\)", readline(f))
                 # set all entries to the same value 
                 val =  [parse(Float64, g[d]) for d in dims]
                 for i = patches[patchname][3]:(patches[patchname][3]+patches[patchname][2]-1)
