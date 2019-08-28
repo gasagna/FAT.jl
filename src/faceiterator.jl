@@ -26,7 +26,7 @@ function faceiterator(m::Mesh, region::Symbol)
     # the number of internal faces, as the boundary faces come after 
     # the internal faces in vectors such as fsvecs. 
     a = facesIDs(m, region)
-    b = region == :internal ? a : a - ninternalfaces(m)
+    b = region == :internal ? a : a .- ninternalfaces(m)
     zip(a, b)
 end
 

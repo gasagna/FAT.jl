@@ -1,6 +1,3 @@
-using Base.Test
-using FAT.Meshes
-
 #= 
 We have two test folders, one with binary data, the other with ascii data. The binary
 folder is obtained by using the command `foamFormatConvert` from a copy of the ascii
@@ -35,7 +32,7 @@ for casedir in ["./ldc_test_binary", "./ldc_test_ascii"]
 
     # all cells should have equal volume. We round here because of finite 
     # precision arithmetic when loading the data files and in the computations
-    @test all(round.(m.cvolumes, 6) .== 1.0/400)
+    @test all(round.(m.cvolumes; digits=6) .== 1.0/400)
 
     # test owner ID is always lower then neighbour ID
     fo = faceownerID(m)
@@ -85,8 +82,8 @@ for casedir in ["./ldc_test_binary", "./ldc_test_ascii"]
     # test faces on the boundary patches are correctly 
     fc = facecentres(m)
     for (ptch, coord, value) in zip([:top, :bottom, :left, :right, :back0, :front1], 
-                                        [:y, :y, :x, :x, :z, :z], 
-                                        [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
+                                    [:y, :y, :x, :x, :z, :z], 
+                                    [1.0, 0.0, 0.0, 1.0, 0.0, 1.0])
           for faceID in facesIDs(m, ptch)
               @test getfield(fc[faceID], coord) == value
           end
@@ -166,14 +163,14 @@ for casedir in ["./ldc_test_binary", "./ldc_test_ascii"]
     @test facesIDs(m, :front1)   == 1241:1640
 
     # test faceiterator
-    @test faceiterator(m, :internal) == zip(   1:760  ,    1:760         )
-    @test faceiterator(m, :boundary) == zip( 761:1640 , ( 761:1640) - 760)
-    @test faceiterator(m, :top)      == zip( 761:780  , ( 761:780 ) - 760)
-    @test faceiterator(m, :left)     == zip( 781:800  , ( 781:800 ) - 760)
-    @test faceiterator(m, :right)    == zip( 801:820  , ( 801:820 ) - 760)
-    @test faceiterator(m, :bottom)   == zip( 821:840  , ( 821:840 ) - 760)
-    @test faceiterator(m, :back0)    == zip( 841:1240 , ( 841:1240) - 760)
-    @test faceiterator(m, :front1)   == zip(1241:1640 , (1241:1640) - 760)
+    @test faceiterator(m, :internal) == zip(   1:760 ,     1:760         )
+    @test faceiterator(m, :boundary) == zip( 761:1640, ( 761:1640) .- 760)
+    @test faceiterator(m, :top)      == zip( 761:780 , ( 761:780 ) .- 760)
+    @test faceiterator(m, :left)     == zip( 781:800 , ( 781:800 ) .- 760)
+    @test faceiterator(m, :right)    == zip( 801:820 , ( 801:820 ) .- 760)
+    @test faceiterator(m, :bottom)   == zip( 821:840 , ( 821:840 ) .- 760)
+    @test faceiterator(m, :back0)    == zip( 841:1240, ( 841:1240) .- 760)
+    @test faceiterator(m, :front1)   == zip(1241:1640, (1241:1640) .- 760)
 
     for faceID in facesIDs(m, :internal)
       # an internal face points from the owner to the neighbour and so 

@@ -1,6 +1,3 @@
-using Base.Test
-using FAT.Meshes
-
 # four points on the unit square 
 a = Point(0.0, 0.0, 0.0)
 b = Point(1.0, 0.0, 0.0)

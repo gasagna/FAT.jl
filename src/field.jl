@@ -3,7 +3,8 @@
 # ------------------------------------------------------------------- #
 module Fields
 
-import Base
+import LinearAlgebra
+import Statistics
 
 using FAT.Meshes
 
@@ -31,7 +32,7 @@ export AbstractField,
     M : the type of Mesh
 
 """
-abstract type AbstractField{D, T<:Real, M<:Mesh} end
+abstract type AbstractField{D, T<:Real, M<:Mesh} <:AbstractVector{T} end
 
 function Base.show(io::IO, u::AbstractField)
     print(io, "$(typeof(u)) object at $(object_id(u))\n")
@@ -149,130 +150,50 @@ Base.similar(u::ScalarField{D, T}) where {D, T} = ScalarField(mesh(u), D, T)
 Base.similar(u::VectorField{D, T}) where {D, T} = VectorField(mesh(u), D, T)
 Base.similar(u::TensorField{D, T}) where {D, T} = TensorField(mesh(u), D, T)
 
-function Base.fill!(u::ScalarField, val::Real)
-    fill!(u.internalField, val); fill!(u.boundaryField, val)
-    return u
-end
-
-Base.zero(u::ScalarField{D, T}) where {D, T} = 
-    fill!(ScalarField(mesh(u), D, T), zero(T))
-
-function Base.fill!(u::VectorField{D, T}, val::Real) where {D, T}
-    for d = 1:D
-        fill!(u[d], zero(T))
-    end
-    return u
-end
-
-Base.zero(u::VectorField{D, T}) where {D, T} =
-    fill!(VectorField(mesh(u), D, T), zero(T))
-
-function Base.fill!(u::TensorField{D, T}, val::Real) where {D, T}
-    for d = 1:D
-        fill!(u[d], zero(T))
-    end
-    return u
-end
-Base.zero(u::TensorField{D, T}) where {D, T} =
-    fill!(TensorField(mesh(u), D, T), zero(T))
-
+Base.zero(u::AbstractField) = (v = similar(u); v .= 0; v)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~ Overload operators on ScalarFields ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Notes: 
-#  ~ we never check if dimensions and mesh of the operands match
-#  ~ only a subset of all possible operations have been overloaded
-#    i.e., only those that were found useful at some point. Others 
-#    can be added as well.
+# ~ BROADCASTING ~
+const ScalarFieldStyle = Broadcast.ArrayStyle{ScalarField}
+Base.BroadcastStyle(::Type{<:ScalarField}) = Broadcast.ArrayStyle{ScalarField}()
 
-# scalar - scalar operations
-for (op, fname) in zip([:-, :+, :*], [:sub!, :add!, :mul!])
-    # fast in-place version scalar-scalar
-    @eval function $fname(u::ScalarField, v::ScalarField, out::ScalarField)
-              a = out.internalField; b = u.internalField; c = v.internalField  
-              @simd for i in eachindex(a)
-                        @inbounds a[i] = $op(b[i], c[i])
-                    end
-              a = out.boundaryField; b = u.boundaryField; c = v.boundaryField
-              @simd for i in eachindex(a) 
-                        @inbounds a[i] = $op(b[i], c[i])
-                    end
-              return out
-          end 
-    # memory-allocating versions
-    @eval Base.$op(u::ScalarField, v::ScalarField) = $fname(u, v, similar(u))
-end   
+const VectorFieldStyle = Broadcast.ArrayStyle{VectorField}
+Base.BroadcastStyle(::Type{<:VectorField}) = Broadcast.ArrayStyle{VectorField}()
 
-# Compute out = u*v + w. This is used in the 
-# `dotgrad` function.
-function muladd!(u::ScalarField,   v::ScalarField, 
-                 w::ScalarField, out::ScalarField)
-    a = out.internalField; b = u.internalField
-    c = v.internalField;   d = w.internalField  
-    @simd for i in eachindex(a)
-        @inbounds a[i] = b[i]*c[i] + d[i]
-    end
-    a = out.boundaryField; b = u.boundaryField
-    c = v.boundaryField;   d = w.boundaryField  
-    @simd for i in eachindex(a)
-        @inbounds a[i] = b[i]*c[i] + d[i]
-    end
-    return out
-end   
-
-# scalar - real operations
-for (op, fname) in zip([:*, :/], [:mul!, :div!])    
-    @eval function $fname(u::ScalarField, v::Real, out::ScalarField)
-          a = out.internalField; b = u.internalField
-          @simd for i in eachindex(a)
-                    @inbounds a[i] = $op(b[i], v)
-                end
-          a = out.boundaryField; b = u.boundaryField
-          @simd for i in eachindex(a) 
-                    @inbounds a[i] = $op(b[i], v)
-                end
-          return out
-      end 
-    # memory-allocating versions
-    @eval Base.$op(u::ScalarField, v::Real) = $fname(u, v, similar(u))
-end
-# only multiplication is symmetric
-Base.:*(v::Real, u::ScalarField) = u*v
-mul!(v::Real, u::ScalarField, out::ScalarField) = mul!(u, v, out)
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~ Overload operators on VectorFields ~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# vector - vector
-for (op, fname) in zip([:-, :+], [:sub!, :add!])
-    # in-place versions
-    @eval function $fname(  u::VectorField{D}, 
-                            v::VectorField{D}, 
-                          out::VectorField{D}) where {D}
-              for d in 1:D 
-                  $fname(u[d], v[d], out[d])
-              end
-              return out
-          end 
-    # memory allocating versions
-    @eval Base.$op(u::VectorField, v::VectorField) = $fname(u, v, similar(u))
+# scalarfield
+@inline function Base.copyto!(dest::ScalarField,
+                                bc::Broadcast.Broadcasted{ScalarFieldStyle})
+    copyto!(dest.internalField, unpack(bc, Val(:internalField)))
+    copyto!(dest.boundaryField, unpack(bc, Val(:boundaryField)))
+    return dest
 end
 
-# vector - real
-for (op, fname) in zip([:*, :/], [:mul!, :div!])
-    @eval function $fname{D}(u::VectorField{D}, v::Real, out::VectorField{D})
-             for d in 1:D
-                 $fname(u[d], v, out[d])
-             end
-             return out
-          end 
-    # memory allocating versions
-    @eval Base.$op(u::VectorField, v::Real) = $fname(u, v, similar(u)) 
+@inline unpack(x::ScalarField, ::Val{:internalField}) = x.internalField
+@inline unpack(x::ScalarField, ::Val{:boundaryField}) = x.boundaryField
+
+# vectorfield
+@inline function Base.copyto!(dest::VectorField{D},
+                                bc::Broadcast.Broadcasted{VectorFieldStyle}) where {D}
+    copyto!(dest[1], unpack(bc, Val(1)))
+    copyto!(dest[2], unpack(bc, Val(2)))
+    D == 3 && copyto!(dest[3], unpack(bc, Val(3)))
+    return dest
 end
-# only multiplication is symmetric
-Base.:*(v::Real, u::VectorField) = u*v
-mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
+
+@inline unpack(x::VectorField, ::Val{i}) where {i} = 
+    (@inbounds v = x.scalars[i]; return v)
+
+# generic
+@inline unpack(bc::Broadcast.Broadcasted, 
+             item::Val) = Broadcast.Broadcasted(bc.f, _unpack(bc.args, item))
+@inline unpack(x::Any, ::Val) = x
+
+@inline _unpack(args::Tuple, item) = (unpack(args[1], item), _unpack(Base.tail(args), item)...)
+@inline _unpack(args::Tuple{Any}, item) = (unpack(args[1], item),)
+@inline _unpack(args::Tuple{}, item) = ()
+
 
 """ Computes the quantity (u⋅∇)v - in-place.
 
@@ -283,18 +204,12 @@ mul!(v::Real, u::VectorField, out::VectorField) = mul!(u, v, out)
     out[2] = u∂v/∂x + v*∂v/∂y + w*∂v/∂z
     out[3] = u∂w/∂x + v*∂w/∂y + w*∂w/∂z
 """
-function dotgrad!( u::VectorField{D, T}, 
-                  ∇v::TensorField{D, T}, 
-                 out::VectorField{D, T}) where {D, T}
-    # set to zero the output
-    fill!(out, zero(T))
-    for di = 1:D
-        for dj = 1:D
-            muladd!(u[dj], ∇v[di, dj], out[di], out[di])
-        end
-    end
+function dotgrad!(u::VectorField{2}, ∇v::TensorField{2}, out::VectorField{2})
+    out[1] .= u[1] .* ∇v[1, 1] .+ u[2] .* ∇v[1, 2]
+    out[2] .= u[1] .* ∇v[2, 1] .+ u[2] .* ∇v[2, 2]
     return out
 end
+
 # memory allocating version
 dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 
@@ -303,16 +218,16 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~ Inner products, norms, and integrals ~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
-Base.dot(u::VectorField{D, T, M}, v::VectorField{D, T, M}) where {D, T, M} =
-    return sum(dot(u.scalars[d], v.scalars[d]) for d = 1:D)
+LinearAlgebra.dot(u::VF, v::VF) where {D, VF<:VectorField{D}} =
+    sum(u.scalars[d] ⋅ v.scalars[d] for d = 1:D)
 
 """ Inner product between two scalar fields. This is 
     the integral of the product of the two fields. This
     is used for computing the integral of the product
     of two vorticity fields in 2D.
 """
-function Base.dot(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T, M}
-    I = zero(T)
+function LinearAlgebra.dot(u::SF, v::SF) where {SF<:ScalarField}
+    I = zero(eltype(u))
     m = mesh(u)
     cvolumes_ = m.cvolumes
     ui_ = u.internalField
@@ -324,7 +239,7 @@ function Base.dot(u::ScalarField{D, T, M}, v::ScalarField{D, T, M}) where {D, T,
 end
 
 """ L2 norm of vector or scalar field """
-Base.norm(u::Union{ScalarField, VectorField}) = sqrt(dot(u, u))
+LinearAlgebra.norm(u::Union{ScalarField, VectorField}) = sqrt(u ⋅ u)
 
 """ Compute partial derivative of `u` with respect to coordinate `dir`.
     
@@ -385,9 +300,7 @@ function der!(  u::ScalarField{D, T},
     end
 
     # divide by the cell volume now, as for Gauss formula
-    @simd for i = 1:ncells(m)
-        @inbounds out_[i] /= cvolumes_[i]
-    end
+    out_ ./= cvolumes_
 
     # FIXME: now we should fill the boundary field of the derivative 
     # either by interpolation or using the boundary conditions. This
@@ -413,9 +326,8 @@ end
 
 """ Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as storage. """
 function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
-    der!(u[2], ω, 1)
-    der!(u[1], tmp, 2)
-    return sub!(ω, tmp, ω)
+    ω .= der!(u[2], ω, 1) .- der!(u[1], tmp, 2)
+    return ω
 end
 
 # versions of the above which allocate the output
@@ -427,12 +339,13 @@ grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
 
 # --- A few convenience functions ----
 """ Compute average of the fields in `us`. """
-function Base.mean(us::AbstractVector{T}) where {T<:AbstractField}
-    m = zero(us[1])
-    for i = 1:length(us)
-        add!(m, us[i], m)
+function Statistics.mean(us::AbstractVector{<:AbstractField})
+    m = copy(us[1])
+    for i = 2:length(us)
+        m .+= us[i]
     end
-    return mul!(m, 1.0/length(us), m)
+    m ./= length(us)
+    return m
 end
 
 """ Compute projections, (dot product), of each `VectorField` of `us` onto 
@@ -455,7 +368,7 @@ function projections( us::AbstractVector{T},
     if bias != false
         tmp = similar(us[1])
         for i = 1:M
-            tmp = sub!(us[i], bias, tmp)
+            tmp .= us[i] .- bias
             for j = 1:N
                 a[i, j] = dot(tmp, uis[j])
             end

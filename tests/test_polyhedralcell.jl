@@ -1,11 +1,7 @@
-using Base.Test
-using FAT.Meshes
-
 # rotation matrices
 Q1 = [1    0          0;
       0    sqrt(3)/2  1/2;
       0    -1/2       sqrt(3)/2]
-Q2 = eye(3, 3)      
 
 # regular cube
 ab = Point(0.0, 0.0, 0.0)
@@ -27,7 +23,7 @@ faceIDss = [(1, 2, 3, 4), # bottom
             (1, 5, 6, 2), # front
             (5, 6, 7, 8)] # top
 
-for Q in (Q1, Q2)
+for Q in (Q1, I)
 
     # rotate points
     ab_ = Point(Q*asarray(ab)...)

@@ -1,1 +1,2 @@
-# make mesh hold the dimensionality of the simulation
+- make mesh hold the dimensionality of the simulation
+- restructure files into folders for each submodule

@@ -17,7 +17,7 @@ using HeterogeneousVectors
 """
 function iscasedir(casedir::AbstractString)
     files = readdir(casedir)
-    "constant" in files && "system" in files
+    return "constant" in files && "system" in files
 end
 
 """ 
@@ -38,7 +38,7 @@ gotomatch(f::IO, regex::Regex) = (matchingline(f, regex); nothing)
 """
 function matchingline(f::IO, regex::Regex) 
     for line in eachline(f)
-        ismatch(regex, line) && return line
+        occursin(regex, line) && return line
     end
     error("no match found with $regex in $f")
 end
@@ -47,19 +47,17 @@ end
         fileformat(filename)
 
     Detect file format of an OpenFOAM file by parsing the 
-    FoamFile dictionary at the beginning of the the file.
+    FoamFile dictionary at the beginning of the file.
     An error is raised if no format is detected.
 """
 function fileformat(filename::AbstractString)
     open(filename) do f
-        m = matchall(r"binary|ascii", matchingline(f, r"format"))
-        length(m) == 0 && error("no suitable format found in $filename")
-        return m[1]
+        return fileformat(f)
     end
 end
 
 function fileformat(f::IO)
-    m = matchall(r"binary|ascii", matchingline(f, r"format"))
+    m = collect(_m.match for _m in eachmatch(r"binary|ascii", matchingline(f, r"format")))
     length(m) == 0 && error("no suitable format found in $filename")
     return m[1]
 end
@@ -77,11 +75,11 @@ function read_points_binary(casedir::AbstractString, mtype::Type)
     open(joinpath(casedir, "constant/polyMesh/points")) do f
         # ~~~ allocate times three as we have 3d points ~~~
         N = parse(Int, matchingline(f, r"^[0-9]+"))
-        out = Vector{Float64}(3*N)
+        out = Vector{Float64}(undef, 3*N)
         read(f, Char); read!(f, out)
         
         # ~~~ we need a vector of 3-tuples ~~~
-        reinterpret(NTuple{3, mtype}, out)
+        return reinterpret(NTuple{3, mtype}, out)
     end
 end
 
@@ -89,13 +87,13 @@ function read_faces_binary(casedir::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/faces")) do f
         # ~~~ read indices ~~~
         N = parse(Int, matchingline(f, r"^[0-9]+"))
-        idxs = Vector{UInt32}(N)
+        idxs = Vector{UInt32}(undef, N)
         read(f, Char); read!(f, idxs)
 
         # ~~~ read data ~~~
         # There are two lists in this file
         N = parse(Int, matchingline(f, r"^[0-9]+"))
-        data = Vector{UInt32}(N)
+        data = Vector{UInt32}(undef, N)
         read(f, Char); read!(f, data)
 
         # ~~~ add one to data ~~~
@@ -103,7 +101,7 @@ function read_faces_binary(casedir::AbstractString)
             @inbounds data[i] += 1
         end
         # ~~~ return heterogeneous vector ~~~
-        HVector(data, idxs)
+        return HVector(data, idxs)
     end
 end
 
@@ -112,14 +110,12 @@ function read_on_binary(casedir::AbstractString, fname::AbstractString)
     open(joinpath(casedir, "constant/polyMesh/", fname)) do f
         # ~~~ read data  ~~~
         N = parse(Int, matchingline(f, r"^[0-9]+"))
-        out = Vector{UInt32}(N)
+        out = Vector{UInt32}(undef, N)
         read(f, Char); read!(f, out)
 
         # ~~~ add one to data ~~~
-        @simd for i in eachindex(out) 
-            @inbounds out[i] += 1
-        end
-        out
+        out .+= 1
+        return out
     end
 end
 
@@ -133,14 +129,12 @@ function read_points_ascii(casedir::AbstractString, mtype::Type)
         # skip (
         readline(f); 
         # preallocate
-        out = Vector{NTuple{3, mtype}}(N)
+        out = Vector{NTuple{3, mtype}}(undef, N)
 
         # ~~~ parse all rows ~~~
         for i = 1:length(out)
-            m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
-            @inbounds out[i] = (parse(mtype, m[1]), 
-                                parse(mtype, m[2]), 
-                                parse(mtype, m[3]))
+            m = collect(_m.match for _m in eachmatch(r"-?[\d.]+(?:e-?\d+)?", readline(f)))
+            @inbounds out[i] = (parse(mtype, m[1]), parse(mtype, m[2]), parse(mtype, m[3]))
         end
         out
     end
@@ -159,7 +153,7 @@ function read_faces_ascii(casedir::AbstractString)
         # ~~~ parse all rows ~~~
         for i = 1:N
             # parse line: this is the most intensive bit
-            m = split(readline(f), [' ', '(', ')'],  keep=false)
+            m = split(readline(f), [' ', '(', ')'],  keepempty=false)
             # Loop over number of face points. We add 0x00000001 
             # because we want a 1-based data structure
             @unlocked out for i = 1:parse(Int, m[1])
@@ -214,7 +208,9 @@ end
     See http://stackoverflow.com/questions/8536749/regex-to
         -check-a-string-contains-just-one-word
 """
-is_patch_name(line::AbstractString) = length(matchall(r"\w+", line)) == 1
+is_patch_name(line::AbstractString) =
+    length(collect(_m.match for _m in eachmatch(r"\w+", line))) == 1
+
 
 """ Parse the `boundary` file and return a dictionary structure.
 
@@ -236,7 +232,7 @@ function read_boundary(casedir::AbstractString)
         line = readline(f)
         if is_patch_name(line)
             patchname = Symbol(strip(line))
-            isempty = contains(matchingline(f, r"type"), "empty")
+            isempty = occursin("empty", matchingline(f, r"type"))
             nfaces = parse(UInt32, split(strip(matchingline(f, r"nFaces"), [' ', ';', '\n']))[2])
             startface = parse(UInt32, split(strip(matchingline(f, r"startFace"), [' ', ';', '\n']))[2])
             patches[patchname] = (isempty, nfaces, startface+UInt32(1))
@@ -283,7 +279,7 @@ function read_internal_vector_field_ascii(f::IO, dims::Tuple{Vararg{Int}})
     # load the desired velocity components into a large matrix
     out = zeros(nlines, length(dims))
     for i = 1:nlines
-        m = matchall(r"-?[\d.]+(?:e-?\d+)?", readline(f))
+        m = collect(_m.match for _m in eachmatch(r"-?[\d.]+(?:e-?\d+)?", readline(f)))
         for j = 1:length(dims)
             out[i, j] = parse(Float64, m[dims[j]])
         end

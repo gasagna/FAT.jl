@@ -3,8 +3,6 @@
 # ------------------------------------------------------------------- #
 module POD
 
-import FAT.Fields: mul!, add!
-
 """ Snaphot POD algorithm 
 
 
@@ -23,17 +21,17 @@ function snapshotPOD(u::AbstractVector, N::Integer; verbose::Bool=true)
     # compute it
     for i = 1:M
         verbose == true && print("\r Correlation matrix completed" *
-              " at: $(round(100.0*i/M, 1))%"); flush(STDOUT)
+              " at: $(round(100.0*i/M, 1))%"); flush(stdout)
         for j = i:M
-            val = convert(Float64, dot(u[i], u[j])) 
+            val = u[i] ⋅ u[j]
             C[i, j] = val/M
             C[j, i] = val/M
         end
     end
 
     # get eigen-decomposition
-    λ, b = eig(C);
-    λ = abs(flipdim(λ, 1))
+    λ, b = eig(LinearAlgebra.Symmetric(C));
+    λ = flipdim(λ, 1)
     b = flipdim(b, 2)
 
     # initialise
@@ -44,23 +42,28 @@ function snapshotPOD(u::AbstractVector, N::Integer; verbose::Bool=true)
     tmp = zero(u[1])
 
     verbose == true && println()
+
     # for each mode we need
     for i = 1:N
         verbose == true && print("\r Construction of modes" *
-                                 ": $(round(100.0*i/N, 1))%"); flush(STDOUT)
-        # create a first zero field
+                                 ": $(round(100.0*i/N; digits=1))%"); flush(stdout)
+        # first create an empty field
         s = zero(u[1])
+
         # take a linear combination of the snapshots
         for j = 1:M
-            mul!(u[j], b[j, i], tmp)
-            add!(s, tmp, s)
-            #s += u[j] * b[j, i]
+            s .+= u[j] .* b[j, i]
         end
-        push!(ui, mul!(s, 1.0/sqrt(M*λ[i]), s))
-        ai[:, i] = b[:, i]*sqrt(M*λ[i])
+        
+        # normalise
+        s .*= 1/sqrt(M*λ[i])
+        @views ai[:, i] .= b[:, i]*sqrt(M*λ[i])
+        
+        # store
+        push!(ui, s)
     end
     verbose == true && println()
-    ai, ui, λ
+    return ai, ui, λ
 end
 
 end

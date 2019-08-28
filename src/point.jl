@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-import Base
+import LinearAlgebra
 
 export Point,
        distance,
@@ -37,12 +37,11 @@ Base.:*(c::Number,  a::Point) = a*c
 Base.:*(a::Point, b::Point) = a.x*b.x + a.y*b.y + a.z*b.z
 Base.:(==)(a::Point, b::Point) = (a.x==b.x && a.y==b.y && a.z==b.z)
 
-distance(a::Point, b::Point) = norm(a-b)
+distance(a::Point, b::Point) = LinearAlgebra.norm(a-b)
 
-Base.norm(p::Point) = sqrt(p.x^2 + p.y^2 + p.z^2)
-Base.cross(a::Point, b::Point) = Point(a.y*b.z - a.z*b.y, 
-                                  a.z*b.x - a.x*b.z, 
-                                  a.x*b.y - a.y*b.x)
+LinearAlgebra.norm(p::Point) = sqrt(p.x^2 + p.y^2 + p.z^2)
+LinearAlgebra.cross(a::Point, b::Point) = 
+    Point(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x)
 
 # make a zero point
 Base.zero(::Type{Point{T}}) where {T} = Point(zero(T), zero(T), zero(T))

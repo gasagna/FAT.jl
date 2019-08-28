@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2016, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
+import Statistics
 
 """ Compute centroid and volume of any polyhedral cell based on the 
     areas and centres of its faces.
@@ -17,9 +18,9 @@
                      Fluid Dynamics: An Advanced Introduction with 
                      OpenFOAM® and Matlab
 """
-function _centreAndVolume{T, S<:Point}(areas::Vector{T}, 
-                                       centres::Vector{S}, 
-                                       N::Integer) 
+function _centreAndVolume(areas::AbstractVector{T},
+                        centres::AbstractVector{<:Point},
+                              N::Integer) where {T<:Real}
     # estimated cell centre, based on average face centre
     cEst = Point(zero(T), zero(T), zero(T))
     for i = 1:N
@@ -36,6 +37,6 @@ function _centreAndVolume{T, S<:Point}(areas::Vector{T},
         vol += pyrvol
         ctr += pyrctr*pyrvol
     end
-    ctr /= vol
-    ctr, vol/3.0
+
+    return ctr/vol, vol/3.0
 end

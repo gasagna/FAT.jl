@@ -6,7 +6,7 @@ module Meshes
 import DataStructures: DefaultDict
 import HeterogeneousVectors: HVector
 
-import Base
+import LinearAlgebra
 
 import FAT.OFIO: reader,
                  read_boundary,
@@ -62,10 +62,7 @@ include("patches.jl")
     ncentre : neighbour cell centre   
     fsvec   : face surface vector  
 """
-function interpolationWeight(fcentre::Point{T}, 
-                             ocentre::Point{T}, 
-                             ncentre::Point{T}, 
-                               fsvec::Point{T}) where {T}
+function interpolationWeight(fcentre::Point, ocentre::Point, ncentre::Point, fsvec::Point)
     down = (fcentre - ocentre)*fsvec
     dnei = (ncentre - fcentre)*fsvec 
     return down/(down+dnei)
@@ -113,7 +110,7 @@ struct Mesh{T}
         # the remaining are internal faces, for which we need an α
         ninternalfaces = length(fcentres) - nboundaryfaces
         # calculate interpolation coefficients
-        αs = Vector{T}(ninternalfaces)
+        αs = Vector{T}(undef, ninternalfaces)
         for i = 1:ninternalfaces
             αs[i] = interpolationWeight(fcentres[i], 
                                         ccentres[fowners[i]], 
@@ -231,20 +228,20 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
     # create vector of mesh points. It he
-    points_data = reader(casedir, "points", T)::Vector{NTuple{3, T}}
+    points_data = reader(casedir, "points", T)
     points = Point{T}[Point(el...) for el in points_data]
     
     # read face information
-    faces_data = reader(casedir, "faces")::HVector{UInt32, UInt32}
+    faces_data = reader(casedir, "faces")
     local nfaces = length(faces_data)
     
     # we also need to construct these two along with the faces
-    fcentres = Vector{Point{T}}(nfaces)
-    fsvecs   = Vector{Point{T}}(nfaces)
-    fareas   = Vector{T}(nfaces)
+    fcentres = Vector{Point{T}}(undef, nfaces)
+    fsvecs   = Vector{Point{T}}(undef, nfaces)
+    fareas   = Vector{T}(undef, nfaces)
 
     # Temporary vector for storing points in a faces
-    pts = Vector{Point{T}}(10)
+    pts = Vector{Point{T}}(undef, 10)
 
     # Now build face properties 
     for faceID = 1:nfaces
@@ -258,7 +255,7 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
         _inplane(pts, length(ptsIDs)) || error("found non planar face with ID $faceID")
         fcentres[faceID] = _centre(pts, length(ptsIDs))
         fsvecs[faceID]   = _svec(pts, length(ptsIDs))
-        fareas[faceID]   = norm(fsvecs[faceID])
+        fareas[faceID]   = LinearAlgebra.norm(fsvecs[faceID])
     end
 
     # read cell owner information
@@ -269,8 +266,8 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     local ncells = max(maximum(fowners), maximum(fneighs))
 
     # will construct this as well
-    ccentres = Vector{Point{T}}(ncells)  
-    cvolumes = Vector{T}(ncells) 
+    ccentres = Vector{Point{T}}(undef, ncells)  
+    cvolumes = Vector{T}(undef, ncells) 
 
     #=
        Read `owner` and `neighbour` files to obtain a vector of vectors, 
@@ -288,8 +285,8 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
     end
 
     # Temporaries for constructing the cell information
-    areas = Vector{T}(10)
-    centres = Vector{Point{T}}(10)
+    areas = Vector{T}(undef, 10)
+    centres = Vector{Point{T}}(undef, 10)
 
     # Now construct cell information
     for (cellID, faceIDs) in enumerate(data)  # for each cell

@@ -1,6 +1,3 @@
-using Base.Test
-using FAT.Meshes
-
 a = Point(1.0, 0.0, 2.0)
 b = Point(0.0, 1.0, 0.0)
 c = Point(0.1, 0.2, 0.3)
