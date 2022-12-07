@@ -1,7 +1,6 @@
 # ------------------------------------------------------------------- #
-# Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
+# Copyright 2015-2022, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-# module Meshes
 
 import DataStructures: DefaultDict
 import HeterogeneousVectors: HVector
@@ -301,5 +300,3 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64, tol::Real=1e-15) where
     return Mesh{T}(points, fsvecs, fcentres, fowners, fneighs, 
                        cvolumes, ccentres, patches)
 end
-
-# end

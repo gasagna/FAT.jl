@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------- #
-# Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
+# Copyright 2015-2022, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
 import LinearAlgebra
 
