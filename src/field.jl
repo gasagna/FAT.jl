@@ -143,7 +143,7 @@ Base.:(==)(u::VectorField, v::VectorField) = u.scalars == v.scalars
 Base.:(==)(u::TensorField, v::TensorField) = u.vectors == v.vectors
 
 # similar
-Base.similar(f::ScalarField) = ScalarField(similar(f.internalField), similar(f.boundaryField), f.mesh) 
+Base.similar(f::ScalarField) = ScalarField(f.mesh, ndims(f), similar(f.internalField), similar(f.boundaryField)) 
 Base.similar(f::VectorField) = VectorField(f.mesh, similar.(f.scalars))
 
 # zero and copy 
@@ -161,10 +161,10 @@ const VectorFieldStyle = Broadcast.ArrayStyle{VectorField}
 Base.BroadcastStyle(::Type{<:VectorField}) = Broadcast.ArrayStyle{VectorField}()
 
 # scalarfield
-@inline function Base.copyto!(dest::ScalarField,
-                                bc::Broadcast.Broadcasted{ScalarFieldStyle})
-    copyto!(dest.internalField, unpack(bc, Val(:internalField)))
-    copyto!(dest.boundaryField, unpack(bc, Val(:boundaryField)))
+@inline function Base.materialize!(dest::ScalarField,
+                                     bc::Broadcast.Broadcasted{ScalarFieldStyle})
+    Base.materialize!(dest.internalField, unpack(bc, Val(:internalField)))
+    Base.materialize!(dest.boundaryField, unpack(bc, Val(:boundaryField)))
     return dest
 end
 
@@ -172,11 +172,11 @@ end
 @inline unpack(x::ScalarField, ::Val{:boundaryField}) = x.boundaryField
 
 # vectorfield
-@inline function Base.copyto!(dest::VectorField{D},
-                                bc::Broadcast.Broadcasted{VectorFieldStyle}) where {D}
-    copyto!(dest[1], unpack(bc, Val(1)))
-    copyto!(dest[2], unpack(bc, Val(2)))
-    D == 3 && copyto!(dest[3], unpack(bc, Val(3)))
+@inline function Base.materialize!(dest::VectorField{D},
+                                     bc::Broadcast.Broadcasted{VectorFieldStyle}) where {D}
+    materialize!(dest[1], unpack(bc, Val(1)))
+    materialize!(dest[2], unpack(bc, Val(2)))
+    D == 3 && materialize!(dest[3], unpack(bc, Val(3)))
     return dest
 end
 

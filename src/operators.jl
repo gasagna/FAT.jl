@@ -138,10 +138,9 @@ function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
 end
 
 # versions of the above which allocate the output
-curl(u::VectorField) = curl!(u, ScalarField(mesh(u), ndims(u), eltype(u)), 
-                                ScalarField(mesh(u), ndims(u), eltype(u)))
-grad(u::ScalarField) = grad!(u, VectorField(mesh(u), ndims(u), eltype(u)))
-grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
+curl(u::VectorField) = curl!(u, similar(u.scalars[1]), similar(u.scalars[1]))
+# grad(u::ScalarField) = grad!(u, VectorField(mesh(u), ndims(u), eltype(u)))
+# grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
 
 
 # --- A few convenience functions ----
