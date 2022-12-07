@@ -26,7 +26,7 @@ dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ Inner product between two vector fields """
 LinearAlgebra.dot(u::VF, v::VF) where {D, VF<:VectorField{D}} =
-    sum(u.scalars[d] ⋅ v.scalars[d] for d = 1:D)
+    sum(LinearAlgebra.dot(u.scalars[d], v.scalars[d]) for d = 1:D)
 
 """ Inner product between two scalar fields. This is 
     the integral of the product of the two fields. This
