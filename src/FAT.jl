@@ -12,7 +12,6 @@ include("constants.jl")
 include("ofio.jl")
 include("meshes.jl")
 include("field.jl")
-include("fieldsiterator.jl")
 include("operators.jl")
 include("simulations.jl")
 
