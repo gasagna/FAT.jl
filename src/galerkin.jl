@@ -48,8 +48,8 @@ function GalerkinModel(u0::VF,
     # Precompute gradients and vorticity fields
     ω0 = curl(u0)
     ∇u0 = grad(u0)
-    ωis  = ScalarField{ndims(u0), eltype(u0), typeof(mesh(u0))}[]
-    ∇uis = TensorField{ndims(u0), eltype(u0), typeof(mesh(u0))}[]
+    ωis  = []
+    ∇uis = []
     for i = 1:N
         gr = grad(uis[i])
         push!(∇uis, gr)
@@ -89,6 +89,7 @@ function GalerkinModel(u0::VF,
         for j = 1:N, i = 1:N
             if i != k
                 sys.Q[i, j, k] = - uis[i] ⋅ dotgrad!(uis[j], ∇uis[k], u∇u)
+                println(i, " ", j, " ", k)
             end
         end
         verbose == true && print("\r Nonlinear term" *

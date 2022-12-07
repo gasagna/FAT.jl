@@ -1,12 +1,11 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-module Fields
 
 import LinearAlgebra
 import Statistics
 
-using FAT.Meshes
+# using FAT.Meshes
 
 export AbstractField, 
        ScalarField, 
@@ -32,15 +31,16 @@ export AbstractField,
     M : the type of Mesh
 
 """
-abstract type AbstractField{D, T<:Real, M<:Mesh} <:AbstractVector{T} end
+abstract type AbstractField{D, T<:Real, M<:Mesh} <: AbstractVector{T} end
 
-function Base.show(io::IO, u::AbstractField)
-    print(io, "$(typeof(u)) object at $(object_id(u))\n")
+function Base.show(io::IO, ::MIME{Symbol("text/plain")}, u::AbstractField)
+    print(io, "$(typeof(u)) object\n")
     print(io, "  ~ Spatial dimensions : $(ndims(u))\n")
     print(io, "  ~ Mesh information:\n")
     print(io, "    ~ ")
     show(io, mesh(u); gap="     ")
 end
+
 
 """ Type representing scalar fields, e.g. pressure, and velocity components.
 
@@ -60,16 +60,15 @@ struct ScalarField{D, T, M} <: AbstractField{D, T, M}
     internalField::Vector{T}
     boundaryField::Vector{T}
     mesh::M
-    # the problem is that there is no way to infer the parameter D from 
-    # the input arguments so D must be always specified. FIXME. WONTFIX
+    function ScalarField(mesh::M, 
+                            D::Integer, 
+                internalField::AbstractVector{T}, 
+                boundaryField::AbstractVector{T}) where {T, M}
+        D in [2, 3] || error("`D` must be either 2 or 3")
+        return new{D, T, M}(internalField, boundaryField, mesh)
+    end
 end
 
-function ScalarField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real}
-    D in [2, 3] || error("`D` must be either 2 or 3")
-    ScalarField{D, T, typeof(mesh)}(Vector{T}(ncells(mesh)), 
-                                    Vector{T}(nboundaryfaces(mesh)), 
-                                    mesh)
-end
 
 """ Type representing vector fields, e.g. velocity or vorticity.
 
@@ -82,13 +81,13 @@ end
     scalars : a tuple of D ScalarField objects
        mesh : the mesh
 """
-struct VectorField{D, T, M} <: AbstractField{D, T, M}
-    scalars::NTuple{D, ScalarField{D, T, M}}
+struct VectorField{D, T, M, S<:ScalarField{D, T, M}} <: AbstractField{D, T, M}
+    scalars::NTuple{D, S}
     mesh::M
+    function VectorField(mesh::M, scalars::NTuple{D, S}) where {D, T, M, S<:ScalarField{D, T, M}}
+        return new{D, T, M, S}(scalars, mesh)
+    end
 end
-
-VectorField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real} =
-    VectorField(ntuple(i->ScalarField(mesh, D, T), D), mesh)
 
 # add syntax such as u[1] or u[:x]
 @inline function Base.getindex(u::VectorField{D}, i::Union{Integer, Symbol}) where {D}
@@ -112,10 +111,10 @@ end
 struct TensorField{D, T, M} <: AbstractField{D, T, M}
     vectors::NTuple{D, VectorField{D, T, M}}
     mesh::M
+    function TensorField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real}
+        return new{D, T, typeof(mesh)}(ntuple(i->VectorField(mesh, D, T), D), mesh)
+    end
 end
-
-TensorField(mesh::Mesh, D::Integer, ::Type{T}=Float64) where {T<:Real} =
-    TensorField(ntuple(i->VectorField(mesh, D, T), D), mesh)
 
 # add syntax such as u[1] or u[:x]
 @inline function Base.getindex(u::TensorField{D}, i::Union{Integer, Symbol}) where {D}
@@ -145,12 +144,13 @@ Base.:(==)(u::ScalarField, v::ScalarField) =
 Base.:(==)(u::VectorField, v::VectorField) = u.scalars == v.scalars
 Base.:(==)(u::TensorField, v::TensorField) = u.vectors == v.vectors
 
-# similar, fill! and zero
-Base.similar(u::ScalarField{D, T}) where {D, T} = ScalarField(mesh(u), D, T)
-Base.similar(u::VectorField{D, T}) where {D, T} = VectorField(mesh(u), D, T)
-Base.similar(u::TensorField{D, T}) where {D, T} = TensorField(mesh(u), D, T)
+# similar
+Base.similar(f::ScalarField) = ScalarField(similar(f.internalField), similar(f.boundaryField), f.mesh) 
+Base.similar(f::VectorField) = VectorField(f.mesh, similar.(f.scalars))
 
+# zero and copy 
 Base.zero(u::AbstractField) = (v = similar(u); v .= 0; v)
+Base.copy(u::AbstractField) = (v = similar(u); v .= u; v)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~ Overload operators on ScalarFields ~~~
@@ -193,198 +193,3 @@ end
 @inline _unpack(args::Tuple, item) = (unpack(args[1], item), _unpack(Base.tail(args), item)...)
 @inline _unpack(args::Tuple{Any}, item) = (unpack(args[1], item),)
 @inline _unpack(args::Tuple{}, item) = ()
-
-
-""" Computes the quantity (u⋅∇)v - in-place.
-
-    Notes
-    -----
-    In 3d this computes the vector field
-    out[1] = u∂u/∂x + v*∂u/∂y + w*∂u/∂z
-    out[2] = u∂v/∂x + v*∂v/∂y + w*∂v/∂z
-    out[3] = u∂w/∂x + v*∂w/∂y + w*∂w/∂z
-"""
-function dotgrad!(u::VectorField{2}, ∇v::TensorField{2}, out::VectorField{2})
-    out[1] .= u[1] .* ∇v[1, 1] .+ u[2] .* ∇v[1, 2]
-    out[2] .= u[1] .* ∇v[2, 1] .+ u[2] .* ∇v[2, 2]
-    return out
-end
-
-# memory allocating version
-dotgrad(u::VectorField, ∇v::TensorField) = dotgrad!(u, ∇v, similar(u))
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# ~~~ Inner products, norms, and integrals ~~~
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-""" Inner product between two vector fields """
-LinearAlgebra.dot(u::VF, v::VF) where {D, VF<:VectorField{D}} =
-    sum(u.scalars[d] ⋅ v.scalars[d] for d = 1:D)
-
-""" Inner product between two scalar fields. This is 
-    the integral of the product of the two fields. This
-    is used for computing the integral of the product
-    of two vorticity fields in 2D.
-"""
-function LinearAlgebra.dot(u::SF, v::SF) where {SF<:ScalarField}
-    I = zero(eltype(u))
-    m = mesh(u)
-    cvolumes_ = m.cvolumes
-    ui_ = u.internalField
-    vi_ = v.internalField
-    @simd for i = 1:ncells(m)
-        @inbounds I += ui_[i]*vi_[i]*cvolumes_[i]
-    end
-    return I
-end
-
-""" L2 norm of vector or scalar field """
-LinearAlgebra.norm(u::Union{ScalarField, VectorField}) = sqrt(u ⋅ u)
-
-""" Compute partial derivative of `u` with respect to coordinate `dir`.
-    
-    Parameters
-    ----------
-      u : input scalar field
-    out : scalar field containing ∂u/∂dir
-    dir : either 1, 2, or 3
-
-    Notes
-    -----
-    Gauss formula is used for computation of the average gradient in the 
-    cell. A linear interpolation of the face value is used. This corresponds 
-    to the 'Gauss linear' gradScheme and to the 'linear' interpolationScheme 
-    in OpenFOAM.
-"""
-function der!(  u::ScalarField{D, T}, 
-              out::ScalarField{D, T}, 
-               dir::Integer) where {D, T}
-    # for 2D simulations we cannot compute the gradient with respect 
-    # to the third direction, it does not make sense to do it
-    D == 2 && dir == 3 && error("Cannot compute partial derivative " *
-                                "with respect to z for 2D field") 
-    out.internalField .= zero(T)
-    out.boundaryField .= zero(T)
-
-    # aliases
-    m = u.mesh
-    αs = m.αs
-    out_ = out.internalField
-    ui_ = u.internalField
-    ub_ = u.boundaryField
-    fowners_ = m.fowners
-    fneighs_ = m.fneighs
-    fsvecs_ = m.fsvecs
-    cvolumes_ = m.cvolumes
-
-    # contributions only from non-empty boundary faces
-    for (patchname, patch) in patches(m)
-        if !(isempty(patch))
-            for (faceID, ibnd) in faceiterator(m, patchname)
-                @inbounds out_[fowners_[faceID]] += (
-                    getfield(fsvecs_[faceID], dir)*ub_[ibnd] )
-            end
-        end
-    end
-
-    # contributions from the internal faces
-    @simd for faceID in 1:ninternalfaces(m)
-        @inbounds  begin 
-            foi = fowners_[faceID]
-            fni = fneighs_[faceID]
-            fvalue = (1.0 - αs[faceID])*ui_[foi] + αs[faceID]*ui_[fni]
-            value = getfield(fsvecs_[faceID], dir)*fvalue
-            out_[foi] += value
-            out_[fni] -= value
-        end
-    end
-
-    # divide by the cell volume now, as for Gauss formula
-    out_ ./= cvolumes_
-
-    # FIXME: now we should fill the boundary field of the derivative 
-    # either by interpolation or using the boundary conditions. This
-    # requires some thoughts and programming.
-    return out
-end
-
-""" Compute gradient of `u` and write in `∇u`. """
-function grad!(u::VectorField{D}, ∇u::TensorField{D}) where {D}
-    for d = 1:D
-        grad!(u[d], ∇u[d])
-    end 
-    return ∇u
-end
-                        
-""" Compute gradient of `u` and write in `∇u`. """
-function grad!(u::ScalarField{D}, ∇u::VectorField{D}) where {D}
-    for d = 1:D
-        der!(u, ∇u[d], d)
-    end 
-    return ∇u
-end
-
-""" Compute scalar vorticity of `u` and write in `ω`. Use `tmp` as storage. """
-function curl!(u::VectorField{2}, ω::ScalarField{2}, tmp::ScalarField{2})
-    ω .= der!(u[2], ω, 1) .- der!(u[1], tmp, 2)
-    return ω
-end
-
-# versions of the above which allocate the output
-curl(u::VectorField) = curl!(u, ScalarField(mesh(u), ndims(u), eltype(u)), 
-                                ScalarField(mesh(u), ndims(u), eltype(u)))
-grad(u::ScalarField) = grad!(u, VectorField(mesh(u), ndims(u), eltype(u)))
-grad(u::VectorField) = grad!(u, TensorField(mesh(u), ndims(u), eltype(u)))
-
-
-# --- A few convenience functions ----
-""" Compute average of the fields in `us`. """
-function Statistics.mean(us::AbstractVector{<:AbstractField})
-    m = copy(us[1])
-    for i = 2:length(us)
-        m .+= us[i]
-    end
-    m ./= length(us)
-    return m
-end
-
-""" Compute projections, (dot product), of each `VectorField` of `us` onto 
-  each `VectorField` in `uis`. Returns a matrix containing:
-
-  a[i, j] = dot(us[i], uis[j])
-
-  An optional bias `m` can be given, for example the mean flow, which is 
-  subtracted from each `VectorField` in `us` before projection.
-
-"""
-function projections( us::AbstractVector{T}, 
-                     uis::AbstractVector{T};
-                    bias::Union{Bool, T}=false,
-                 verbose::Bool=true) where {T<:VectorField}
-    M = length(us)
-    N = length(uis)
-    a = zeros(eltype(uis[1]), M, N)
-    # need to subtract bias from us and write to tmp
-    if bias != false
-        tmp = similar(us[1])
-        for i = 1:M
-            tmp .= us[i] .- bias
-            for j = 1:N
-                a[i, j] = dot(tmp, uis[j])
-            end
-            verbose == true && print("\r Completed" *
-              ": done $(round(100*i/M))%"); flush(STDOUT)
-        end
-    else 
-        for i = 1:M
-            for j = 1:N
-                a[i, j] = dot(us[i], uis[j])
-            end
-            verbose == true && print("\r Completed" *
-              ": done $(round(100*i/M))%"); flush(STDOUT)
-        end
-    end
-    return a
-end
-
-end

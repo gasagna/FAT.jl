@@ -63,11 +63,11 @@ end
 # Functions to check planarity of faces
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """ 
-    Check all pts line in a single plane, by computing the cross
+    Check all pts lie on a plane, by computing the cross
     product of first two neighbouring edges and checking all other 
     edges are orthogonal to it.
 """
-_inplane(pt1::Point, pt2::Point, pt3::Point, pt4::Point) =
-    LinearAlgebra.cross(pt2-pt1, pt3-pt2)*(pt4-pt3) ≈ 0.0 ? true : false
+_inplane(pt1::Point, pt2::Point, pt3::Point, pt4::Point, tol::Real=1e-15) =
+    abs(LinearAlgebra.cross(pt2-pt1, pt3-pt2)*(pt4-pt3)) < tol  ? true : false
 
 _inplane(::Point, ::Point, ::Point) = true

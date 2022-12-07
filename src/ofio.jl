@@ -1,8 +1,6 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-module OFIO
-
 using HeterogeneousVectors
 
 
@@ -296,7 +294,8 @@ function read_internal_vector_field_binary(f::IO, dims::Tuple{Vararg{Int}})
     read(f, Char)
     # read into large matrix, then split
     # TODO: have this more efficient
-    out = read(f, Float64, (3, ncells))
+    # out = read(f, Float64, (3, ncells))
+    out = read!(f, Array{Float64}(undef, 3, ncells))
     [view(out, d, :) for d in dims]
 end
 
@@ -350,6 +349,4 @@ function read_boundary_vector_field_ascii(casedir::AbstractString, f::IO, dims::
         end
     end 
     [view(output, :, j) for j in 1:length(dims)]
-end
-
 end

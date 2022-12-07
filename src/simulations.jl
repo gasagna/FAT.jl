@@ -1,24 +1,13 @@
  # ------------------------------------------------------------------- #
 # Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-module Simulation
-
 import DataStructures: SortedDict
-
-import FAT.Meshes: Mesh
-
-import FAT.Fields: AbstractField,
-                   ScalarField,
-                   VectorField,
-                   mesh
-
-import FAT.OFIO: iscasedir,
-                 read_vector_field
 
 export SimulationData,
        times,
        mesh,
-       casedir
+       casedir,
+       load_vector_snapshot
 
 # ============================================================================ #
 # SIMULATION DATA OBJECT
@@ -31,6 +20,9 @@ struct SimulationData{D,
        dims::NTuple{D, Int} # load velocity along these directions
        tmap::S              # snapshot times
 end
+
+Base.ndims(s::SimulationData{D}) where {D} = D
+Base.eltype(s::SimulationData{D, T}) where {D, T} = T
 
 # set of monotonically increasing dimensions
 const _ALLOWED_DIMENSIONS = [(1, 2, 3), (1, 2), (1, 3), (2, 3)]
@@ -96,17 +88,17 @@ function _get_folders_map(casedir::AbstractString)
     for folder in readdir(casedir)
         # check that folder is a valid snapshot folder (parseable as a float)
         t = tryparse(Float64, folder)
-        if !isnull(t)
-            tmap[get(t)] = folder
+        if t != nothing
+            tmap[t] = folder
         end
     end
     return tmap
 end
 
-# Load a velocity snapshot from file
-function _load_snapshot_vector(sim::SimulationData{D}, 
-                                 t::Real, 
-                               var::Symbol) where {D}
+
+function load_vector_snapshot(sim::SimulationData{D}, 
+                                t::Real, 
+                              var::Symbol) where {D}
     # return a valid file, or raise an error
     filename = _get_filename(sim, t, var)
     # read boundary and internal fields
@@ -114,10 +106,9 @@ function _load_snapshot_vector(sim::SimulationData{D},
     # type parameters of the vector field
     params = length(sim.dims), Float64,  Mesh{Float64}
     # tuple of scalar fields, each containing one component
-    scalars = ntuple(i->ScalarField{params...}(
-            intf[i], bndf[i], mesh(sim)), D)
+    scalars = ntuple(i->ScalarField(mesh(sim), D, intf[i], bndf[i]), D)
     # output
-    return VectorField(scalars, mesh(sim))
+    return VectorField(mesh(sim), scalars)
 end
 
 # TODO
@@ -130,9 +121,4 @@ function _get_filename(sim::SimulationData, t::Real, var::Symbol)
     filename = joinpath(sim.casedir, sim.tmap[t], string(var))
     ispath(filename) || throw(SnapshotError("field $var not available at time $t"))
     return filename
-end
-
-# include FieldIterator
-include("fieldsiterator.jl")
-
 end

@@ -1,16 +1,12 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-module Meshes
+# module Meshes
 
 import DataStructures: DefaultDict
 import HeterogeneousVectors: HVector
 
 import LinearAlgebra
-
-import FAT.OFIO: reader,
-                 read_boundary,
-                 iscasedir
 
 export Patch, 
        patchname,
@@ -153,7 +149,7 @@ cellvolumes(m::Mesh) = m.cvolumes
 
 " Get `dir` coordinates of cell centres "
 function cellcentres(m::Mesh{T}, dir::Symbol) where {T}
-    out = Vector{T}(ncells(m))
+    out = Vector{T}(undef, ncells(m))
     cc = m.ccentres
     for i in 1:length(out)
         out[i] = getfield(cc[i], dir)
@@ -223,7 +219,7 @@ points(m::Mesh) = m.points
               volumes, ...
 
 """
-function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
+function Mesh(casedir::AbstractString, ::Type{T}=Float64, tol::Real=1e-15) where {T<:Real}
     # check before loading
     iscasedir(casedir) || error("$casedir is not an OpenFoam case!")
 
@@ -252,7 +248,7 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
             pts[i] = points[ptsID]
         end
         # check for disaster
-        _inplane(pts, length(ptsIDs)) || error("found non planar face with ID $faceID")
+        _inplane(pts, length(ptsIDs))#, tol) || error("found non planar face with ID $faceID")
         fcentres[faceID] = _centre(pts, length(ptsIDs))
         fsvecs[faceID]   = _svec(pts, length(ptsIDs))
         fareas[faceID]   = LinearAlgebra.norm(fsvecs[faceID])
@@ -306,4 +302,4 @@ function Mesh(casedir::AbstractString, ::Type{T}=Float64) where {T<:Real}
                        cvolumes, ccentres, patches)
 end
 
-end
+# end

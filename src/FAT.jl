@@ -12,10 +12,10 @@ include("constants.jl")
 include("ofio.jl")
 include("meshes.jl")
 include("field.jl")
-include("pod.jl")
+include("fieldsiterator.jl")
+include("operators.jl")
+# include("pod.jl")
 include("simulations.jl")
-include("galerkin.jl")
-
-using .Constants, .Meshes, .Fields, .Simulation, .OFIO, .POD, .Galerkin
+# include("galerkin.jl")
 
 end

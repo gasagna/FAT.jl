@@ -1,7 +1,6 @@
 # ------------------------------------------------------------------- #
 # Copyright 2015-2019, Davide Lasagna, AFM, University of Southampton #
 # ------------------------------------------------------------------- #
-import Statistics
 
 """ Compute centroid and volume of any polyhedral cell based on the 
     areas and centres of its faces.
